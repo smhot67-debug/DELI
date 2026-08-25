@@ -309,7 +309,7 @@ const PASSWORD = '7010';
   const lock = document.getElementById('lock'), app = document.getElementById('app');
   const input = document.getElementById('pwInput'), msg = document.getElementById('pwMsg'), btn = document.getElementById('pwBtn');
   function unlock(){ lock.style.display='none'; app.style.display='block'; boot(); }
-  if(sessionStorage.getItem('pd_auth') === '1'){ unlock(); return; }
+  if(sessionStorage.getItem('pd_auth') === '1'){ setTimeout(unlock, 0); return; }
   function tryPw(){
     if(input.value === PASSWORD){ sessionStorage.setItem('pd_auth','1'); unlock(); }
     else{
@@ -392,9 +392,9 @@ function wlabel(s){ const e=weekEnd(s), f=d=>`${String(d.getMonth()+1).padStart(
 const wkey = d => ymd(weekStart(d));
 
 const FIELDS = [
-  {key:'date',  exact:['일자','날짜'],          has:['일자','날짜','생산일','date'], req:true},
-  {key:'cat',   exact:['카테고리','대분류'],     has:['카테고리','대분류','제품군','품목군','구분','분류']},
-  {key:'item',  exact:['제품명','품목명'],       has:['제품명','품목','품명','자재내역','자재명','내역','제품']},
+  {key:'date',  exact:['일자','날짜','전기일'],  has:['일자','날짜','생산일','전기일','입고일','작업일','date'], req:true},
+  {key:'cat',   exact:['카테고리','대분류','MRP 관리자'], has:['카테고리','대분류','제품군','품목군','구분','분류','관리자','mrp']},
+  {key:'item',  exact:['제품명','품목명','내역'], has:['제품명','품목','품명','자재내역','자재명','내역','제품']},
   {key:'qty',   exact:['생산량','생산수량'],     has:['생산량','생산수량','실적수량','생산실적','생산'], req:true},
   {key:'target',exact:['목표량','계획량'],       has:['목표','계획']},
   {key:'memo',  exact:['비고'],                 has:['비고','메모']},
