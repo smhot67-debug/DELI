@@ -415,6 +415,16 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-mb section{display:none;} .pg-mb section.on{display:block;}
 .pg-mb .mbstatus{font-size:.72rem;color:var(--sub);margin-left:auto;white-space:pre-line;}
 .pg-mb .mbstatus.err{color:var(--red);font-weight:700;}
+.pg-mb .mbnav{display:none;}
+.pg-mb .sumcard{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px;margin-bottom:14px;}
+.pg-mb .sumcard h3{font-size:.88rem;font-weight:800;color:var(--navy);margin-bottom:2px;}
+.pg-mb .sumcard .sub{font-size:.7rem;color:var(--sub);margin-bottom:12px;}
+.pg-mb .mhbar{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12.5px;}
+.pg-mb .mhbar .nm{width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;color:var(--ink);font-weight:600;}
+.pg-mb .mhbar .btrack{flex:1;height:16px;background:var(--bg);border-radius:3px;position:relative;overflow:hidden;}
+.pg-mb .mhbar .bfill{position:absolute;top:0;bottom:0;border-radius:3px;}
+.pg-mb .mhbar .val{width:150px;text-align:right;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;}
+.pg-mb .mhbar .val b{font-weight:800;}
 </style>
 </head>
 <body>
@@ -446,7 +456,10 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="insight">인사이트</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">피벗 상세</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
-      <div class="sb-item sb-sub" data-page="mb"><span class="ic">🔍</span>MB5B 재료비</div>
+      <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>원가비교</div>
+      <div class="sb-item sb-sub2" data-page="mb" data-mtab="mat">투입자재별</div>
+      <div class="sb-item sb-sub2" data-page="mb" data-mtab="prod">제품별</div>
+      <div class="sb-item sb-sub2" data-page="mb" data-mtab="mb">MB5B 이상탐지</div>
     </nav>
     <div class="sb-foot">
       <span class="sb-status busy" id="statusPill"><span class="dot"></span><span id="statusText">불러오는 중…</span></span>
@@ -715,7 +728,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           <button data-t="mb" disabled>🔍 MB5B 이상탐지</button>
         </div>
         <section id="sec-sum" class="on">
-          <div class="page-head"><div class="eyebrow">Overview</div><h2>재료비 전월 비교 요약</h2>
+          <div class="page-head"><div class="eyebrow">Overview</div><h2>원가 비교 요약</h2>
             <div class="desc">원재료비·포재료비만 집계 (가공비 제외)</div></div>
           <div class="empty" style="background:var(--card);border:1px solid var(--line);border-radius:11px" id="mbEmptySum">원가분석 시트를 읽는 중…</div>
         </section>
@@ -884,6 +897,7 @@ document.querySelectorAll('.sb-item[data-page]').forEach(b=>{
     document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='page-'+curPage));
     if(curPage==='prod' && prodState.all.length) renderProd();
     if(curPage==='rcpt' && b.dataset.rtab) activateTab(b.dataset.rtab);
+    if(curPage==='mb' && b.dataset.mtab) mbActivateTab(b.dataset.mtab);
   };
 });
 function setStatus(kind,text){
@@ -1295,6 +1309,7 @@ document.getElementById('btnCsv').onclick=()=>{
 const rcpt={rows:[],excl:0};
 const led ={rows:[]};
 let selYear=null, selMonth=null, openMats=new Set(), rcptCls='all';
+let firstLoad=true;
 let ledSelYear=null, ledMetric='in', ledCls='all';
 
 function shareCell(part,whole){
@@ -1966,16 +1981,26 @@ function applySort(arr,sec,defKey){
 function renderSum(){
   const l=L(),t=AN.tAll,inc=t.a5-t.a4;
   const pct=t.a4>0?(t.a5/t.a4-1)*100:null;
-  const ma=AN.mb?AN.mb.filter(r=>r.mx>=thA()).length:null;
-  const mw=AN.mb?AN.mb.filter(r=>r.mx>=thW()&&r.mx<thA()).length:null;
   const maxAbs=Math.max(Math.abs(AN.pd),Math.abs(AN.qd),1);
   const bar=(v,color)=>{ const w=Math.abs(v)/maxAbs*50,left=v>=0?50:50-w;
     return '<div class="dfill" style="left:'+left+'%;width:'+w+'%;background:'+color+'"></div>'; };
   const rp=AN.tRaw.a4>0?(AN.tRaw.a5/AN.tRaw.a4-1)*100:null;
   const pp=AN.tPack.a4>0?(AN.tPack.a5/AN.tPack.a4-1)*100:null;
+
+  // 주요 증감 자재 TOP 5 (증감액 절대값 기준)
+  const movers=AN.mats.slice().filter(m=>m.state==='증가'||m.state==='감소')
+    .sort((a,b)=>Math.abs(b.inc)-Math.abs(a.inc)).slice(0,5);
+  const mmax=Math.max.apply(null,movers.map(m=>Math.abs(m.inc)).concat([1]));
+  const moverRows=movers.map(m=>{
+    const w=Math.abs(m.inc)/mmax*100, col=m.inc>0?'#DC2626':'#2563EB';
+    return '<div class="mhbar"><div class="nm" title="'+esc(m.name)+'">'+esc(m.name)+'</div>'+
+      '<div class="btrack"><div class="bfill" style="width:'+w+'%;background:'+col+'"></div></div>'+
+      '<div class="val">'+(m.inc>0?'▲ +':'▼ ')+'<b>'+mfmt(Math.abs(m.inc))+'</b>원 · '+fmtP(m.pct)+'</div></div>';
+  }).join('')||'<div class="sub">비교 대상 증감 자재가 없습니다.</div>';
+
   $('#sec-sum').innerHTML=
-  '<div class="page-head"><div class="eyebrow">Overview</div><h2>재료비 전월 비교 요약</h2>'+
-  '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 (가공비 제외)</div></div>'+
+  '<div class="page-head"><div class="eyebrow">Overview</div><h2>원가 비교 요약</h2>'+
+  '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 비교 (가공비 제외) · 투입자재별·제품별 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
   '<div class="kpis">'+
     '<div class="kpi '+(inc>0?'kr':'')+'"><div class="kl">재료비 증감 ('+esc(l.c)+')</div>'+
       '<div class="kv '+(inc<0?'neg':'pos')+'">'+mfmt(inc/1e6,1)+'<span style="font-size:.8rem;font-weight:600"> 백만</span></div>'+
@@ -1986,15 +2011,19 @@ function renderSum(){
     '<div class="kpi ka"><div class="kl">포재료비</div>'+
       '<div class="kv '+mcls(AN.tPack.a5-AN.tPack.a4)+'">'+mfmt((AN.tPack.a5-AN.tPack.a4)/1e6,1)+'<span style="font-size:.8rem;font-weight:600"> M</span></div>'+
       '<div class="kn">'+fmtP(pp)+' · '+esc(l.c)+' '+mfmt(AN.tPack.a5/1e6,1)+'M</div></div>'+
-    '<div class="kpi '+(ma?'kr':'')+'"><div class="kl">MB5B 이상탐지</div>'+
-      '<div class="kv" style="'+(ma?'color:var(--red)':'color:var(--sub)')+'">'+(ma==null?'–':ma)+'<span style="font-size:.8rem;font-weight:600"> 🚨</span></div>'+
-      '<div class="kn">'+(AN.mb?('⚠ '+mw+'건 · 기준 '+(MBS.mbBase==='prev'?esc(l.p):esc(l.c))):'MB5B 시트 없음')+'</div></div>'+
+    '<div class="kpi"><div class="kl">비교 대상 자재</div>'+
+      '<div class="kv">'+AN.mats.length+'<span style="font-size:.8rem;font-weight:600"> 종</span></div>'+
+      '<div class="kn">제품 '+AN.prods.length+'종 반영</div></div>'+
   '</div>'+
   '<div class="card"><div class="card-head"><h3>증감 분해</h3>'+
     '<span class="note">단가차이(가격효과) + 물량차이(소비·생산량효과) = 총증감</span></div>'+
     '<div class="drow"><div class="dlab">단가차이</div><div class="dtrack">'+bar(AN.pd,'#DC2626')+'</div><div class="dval '+mcls(AN.pd)+'">'+mfmt(AN.pd/1e6,1)+' M</div></div>'+
     '<div class="drow"><div class="dlab">물량차이</div><div class="dtrack">'+bar(AN.qd,'#2563EB')+'</div><div class="dval '+mcls(AN.qd)+'">'+mfmt(AN.qd/1e6,1)+' M</div></div>'+
     '<div class="drow"><div class="dlab" style="color:var(--sub)">합계</div><div class="dtrack">'+bar(AN.pd+AN.qd,'#1A2E45')+'</div><div class="dval">'+mfmt((AN.pd+AN.qd)/1e6,1)+' M</div></div>'+
+  '</div>'+
+  '<div class="sumcard"><h3>주요 증감 자재 TOP 5</h3>'+
+    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 증감액 절대값 기준 · 자세한 내역은 "투입자재별"에서 확인</div>'+
+    moverRows+
   '</div>'+
   '<div class="hint">단가 % — 두 달 모두 투입(생산)이 있을 때만 표시. 어느 달이 0이면 "–".</div>';
 }
@@ -2160,7 +2189,13 @@ document.querySelectorAll('.pg-mb .mbnav button').forEach(b=>b.addEventListener(
   if(b.disabled) return;
   document.querySelectorAll('.pg-mb .mbnav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.pg-mb section').forEach(s=>s.classList.toggle('on',s.id==='sec-'+b.dataset.t));
+  document.querySelectorAll('.sb-sub2[data-page="mb"]').forEach(x=>x.classList.toggle('on',x.dataset.mtab===b.dataset.t));
+  document.querySelector('.sb-item.sb-sub[data-page="mb"]').classList.toggle('on', b.dataset.t==='sum');
 }));
+function mbActivateTab(name){
+  const btn=document.querySelector('.pg-mb .mbnav button[data-t="'+name+'"]');
+  if(btn && !btn.disabled) btn.click();
+}
 $('#mbPrev').addEventListener('click',()=>{ MBS.mbBase='prev'; $('#mbPrev').classList.add('on'); $('#mbCurr').classList.remove('on'); mbTryRun(); });
 $('#mbCurr').addEventListener('click',()=>{ MBS.mbBase='curr'; $('#mbCurr').classList.add('on'); $('#mbPrev').classList.remove('on'); mbTryRun(); });
 ['thWarn','thAlert'].forEach(id=>$('#'+id).addEventListener('input',()=>AN&&mbRender()));
@@ -2233,10 +2268,18 @@ async function loadAll(){
   buildGlobalMonth();
 
   // --- 화면 렌더 ---
+  // 생산실적은 기준월(당월) 그대로, 거래처별 입고·월별 수불은 처음 열 때만 "전월" 기준으로 시작
+  // (마감 이후에야 값이 확정되는 데이터 특성 반영). 새로고침 시엔 사용자가 고른 값을 유지.
+  if(firstLoad){
+    const pm=G.month===1?12:G.month-1, py=G.month===1?G.year-1:G.year;
+    selYear=py; selMonth=pm;
+    ledSelYear=py;
+  }
   if(prodState.all.length){ initProdFilters(); renderProd(); }
-  if(rcpt.rows.length){ selYear=G.year; selMonth=G.month; buildRcptFilters(); renderReceipts(); }
-  if(led.rows.length){ ledSelYear=G.year; buildLedgerFilters(); renderLedger(); }
+  if(rcpt.rows.length){ if(!firstLoad){ selYear=G.year; selMonth=G.month; } buildRcptFilters(); renderReceipts(); }
+  if(led.rows.length){ if(!firstLoad){ ledSelYear=G.year; } buildLedgerFilters(); renderLedger(); }
   refreshChrome();
+  firstLoad=false;
 
   // --- MB5B / 원가분석 ---
   const mbSt=$('#mbStatus');
