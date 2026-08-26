@@ -305,7 +305,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-mb{font-size:14px}
 .pg-mb{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",-apple-system,sans-serif;
   background:var(--bg);color:var(--ink);line-height:1.55;font-variant-numeric:tabular-nums;
-  display:flex;min-height:100vh}
+  min-height:100vh}
 .pg-mb .sb-logo .co{font-size:.6rem;letter-spacing:.12em;color:rgba(255,255,255,.4);text-transform:uppercase;font-weight:700}
 .pg-mb .sb-logo h1{font-size:.95rem;font-weight:800;margin-top:5px;line-height:1.35;letter-spacing:-.01em}
 .pg-mb .sb-logo .ver{font-size:.62rem;color:rgba(255,255,255,.32);margin-top:4px}
@@ -396,7 +396,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-mb .hint{font-size:.68rem;color:var(--sub);margin-top:9px;padding:7px 11px;background:var(--bg);
   border-radius:7px;border:1px solid var(--line);line-height:1.6}
 /* --- 셸 통합용 패치 --- */
-.pg-mb{display:block;min-height:auto;padding:22px 26px 70px;background:transparent;}
+.pg-mb{min-height:auto;padding:22px 26px 70px;background:transparent;}
 .pg-mb .mbwrap{max-width:1500px;margin:0 auto;}
 .pg-mb .cfgbar{background:var(--card);border:1px solid var(--line);border-radius:11px;
   padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
@@ -457,8 +457,8 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">피벗 상세</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
       <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>원가비교</div>
-      <div class="sb-item sb-sub2" data-page="mb" data-mtab="mat">투입자재별</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="prod">제품별</div>
+      <div class="sb-item sb-sub2" data-page="mb" data-mtab="mat">투입자재별</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="mb">MB5B 이상탐지</div>
     </nav>
     <div class="sb-foot">
@@ -723,8 +723,8 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
         </div>
         <div class="mbnav">
           <button data-t="sum" class="on" disabled>📊 요약</button>
-          <button data-t="mat" disabled>🧪 투입자재별</button>
           <button data-t="prod" disabled>📦 제품별</button>
+          <button data-t="mat" disabled>🧪 투입자재별</button>
           <button data-t="mb" disabled>🔍 MB5B 이상탐지</button>
         </div>
         <section id="sec-sum" class="on">
@@ -1981,26 +1981,27 @@ function applySort(arr,sec,defKey){
 function renderSum(){
   const l=L(),t=AN.tAll,inc=t.a5-t.a4;
   const pct=t.a4>0?(t.a5/t.a4-1)*100:null;
-  const maxAbs=Math.max(Math.abs(AN.pd),Math.abs(AN.qd),1);
-  const bar=(v,color)=>{ const w=Math.abs(v)/maxAbs*50,left=v>=0?50:50-w;
-    return '<div class="dfill" style="left:'+left+'%;width:'+w+'%;background:'+color+'"></div>'; };
   const rp=AN.tRaw.a4>0?(AN.tRaw.a5/AN.tRaw.a4-1)*100:null;
   const pp=AN.tPack.a4>0?(AN.tPack.a5/AN.tPack.a4-1)*100:null;
 
-  // 주요 증감 자재 TOP 5 (증감액 절대값 기준)
-  const movers=AN.mats.slice().filter(m=>m.state==='증가'||m.state==='감소')
-    .sort((a,b)=>Math.abs(b.inc)-Math.abs(a.inc)).slice(0,5);
-  const mmax=Math.max.apply(null,movers.map(m=>Math.abs(m.inc)).concat([1]));
-  const moverRows=movers.map(m=>{
-    const w=Math.abs(m.inc)/mmax*100, col=m.inc>0?'#DC2626':'#2563EB';
-    return '<div class="mhbar"><div class="nm" title="'+esc(m.name)+'">'+esc(m.name)+'</div>'+
-      '<div class="btrack"><div class="bfill" style="width:'+w+'%;background:'+col+'"></div></div>'+
-      '<div class="val">'+(m.inc>0?'▲ +':'▼ ')+'<b>'+mfmt(Math.abs(m.inc))+'</b>원 · '+fmtP(m.pct)+'</div></div>';
-  }).join('')||'<div class="sub">비교 대상 증감 자재가 없습니다.</div>';
+  function moverList(arr,nameKey){
+    const rows=arr.slice().filter(m=>m.state==='증가'||m.state==='감소')
+      .sort((a,b)=>Math.abs(b.inc)-Math.abs(a.inc)).slice(0,5);
+    const mmax=Math.max.apply(null,rows.map(m=>Math.abs(m.inc)).concat([1]));
+    return rows.map(m=>{
+      const w=Math.abs(m.inc)/mmax*100, col=m.inc>0?'#DC2626':'#2563EB';
+      const pctv=nameKey==='prod'?m.upct:m.pct;
+      return '<div class="mhbar"><div class="nm" title="'+esc(m.name)+'">'+esc(m.name)+'</div>'+
+        '<div class="btrack"><div class="bfill" style="width:'+w+'%;background:'+col+'"></div></div>'+
+        '<div class="val">'+(m.inc>0?'▲ +':'▼ ')+'<b>'+mfmt(Math.abs(m.inc))+'</b>원'+(pctv!=null?' · '+fmtP(pctv):'')+'</div></div>';
+    }).join('')||'<div class="sub">비교 대상 증감 항목이 없습니다.</div>';
+  }
+  const prodMovers=moverList(AN.prods,'prod');
+  const matMovers=moverList(AN.mats,'mat');
 
   $('#sec-sum').innerHTML=
   '<div class="page-head"><div class="eyebrow">Overview</div><h2>원가 비교 요약</h2>'+
-  '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 비교 (가공비 제외) · 투입자재별·제품별 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
+  '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 비교 (가공비 제외) · 월중 검토용 — 마감 전 자료라 단가·물량 효과 분해 대신 튀는 숫자 위주로 보여드려요 · 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
   '<div class="kpis">'+
     '<div class="kpi '+(inc>0?'kr':'')+'"><div class="kl">재료비 증감 ('+esc(l.c)+')</div>'+
       '<div class="kv '+(inc<0?'neg':'pos')+'">'+mfmt(inc/1e6,1)+'<span style="font-size:.8rem;font-weight:600"> 백만</span></div>'+
@@ -2015,17 +2016,15 @@ function renderSum(){
       '<div class="kv">'+AN.mats.length+'<span style="font-size:.8rem;font-weight:600"> 종</span></div>'+
       '<div class="kn">제품 '+AN.prods.length+'종 반영</div></div>'+
   '</div>'+
-  '<div class="card"><div class="card-head"><h3>증감 분해</h3>'+
-    '<span class="note">단가차이(가격효과) + 물량차이(소비·생산량효과) = 총증감</span></div>'+
-    '<div class="drow"><div class="dlab">단가차이</div><div class="dtrack">'+bar(AN.pd,'#DC2626')+'</div><div class="dval '+mcls(AN.pd)+'">'+mfmt(AN.pd/1e6,1)+' M</div></div>'+
-    '<div class="drow"><div class="dlab">물량차이</div><div class="dtrack">'+bar(AN.qd,'#2563EB')+'</div><div class="dval '+mcls(AN.qd)+'">'+mfmt(AN.qd/1e6,1)+' M</div></div>'+
-    '<div class="drow"><div class="dlab" style="color:var(--sub)">합계</div><div class="dtrack">'+bar(AN.pd+AN.qd,'#1A2E45')+'</div><div class="dval">'+mfmt((AN.pd+AN.qd)/1e6,1)+' M</div></div>'+
+  '<div class="sumcard"><h3>제품별 재료비 증감 TOP 5</h3>'+
+    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 증감액 절대값 기준 · 자세한 내역은 "제품별"에서 확인</div>'+
+    prodMovers+
   '</div>'+
-  '<div class="sumcard"><h3>주요 증감 자재 TOP 5</h3>'+
+  '<div class="sumcard"><h3>투입자재별 재료비 증감 TOP 5</h3>'+
     '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 증감액 절대값 기준 · 자세한 내역은 "투입자재별"에서 확인</div>'+
-    moverRows+
+    matMovers+
   '</div>'+
-  '<div class="hint">단가 % — 두 달 모두 투입(생산)이 있을 때만 표시. 어느 달이 0이면 "–".</div>';
+  '<div class="hint">여기 보이는 수치는 두 원가분석 시트를 그대로 비교한 것으로, 마감 전이라면 이후 값이 더 바뀔 수 있습니다. 단가차이·물량차이 분해는 "투입자재별" 탭에서 확인할 수 있어요.</div>';
 }
 function renderMat(){
   const l=L(), qEl=$('#matQ'), q=(qEl?qEl.value:'').toLowerCase();
