@@ -280,6 +280,11 @@
         <div class="cat-grid" id="catGrid"></div>
       </div>
 
+      <div class="card hidden" id="priceTrendCard">
+        <h2 class="sec">자재별 단가 변동 <span class="hint" id="priceTrendHint">— 전월 대비</span></h2>
+        <div class="tbl-scroll" style="max-height:420px;"><table id="tblPriceTrend"></table></div>
+      </div>
+
       <div class="card">
         <h2 class="sec" id="pivotTitle">일자 × 카테고리 집계표</h2>
         <div class="tbl-scroll"><table id="tblPivot"></table></div>
@@ -393,6 +398,17 @@ function weekEnd(d){ const s=weekStart(d); const e=new Date(s); e.setDate(s.getD
 function wlabel(s){ const e=weekEnd(s), f=d=>`${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; return `${f(s)}~${f(e)}`; }
 const wkey = d => ymd(weekStart(d));
 
+/* 자재코드 앞자리로 원재료/포재료를 구분합니다. (4로 시작=원재료, 6으로 시작=포재료) */
+function classifyMaterial(code){
+  const s = String(code||'').trim().replace(/\.0$/,'');
+  if(!s) return '미분류';
+  const p = s[0];
+  if(p==='4') return '원재료';
+  if(p==='6') return '포재료';
+  if(p==='7') return '기타(소모품)';
+  return '미분류';
+}
+
 /* ============ 탭 유형별 설정 (필드 매핑 + 표시 라벨) ============ */
 function sampleProductionRows(){
   const cats = {'소시지류':['비엔나 1kg','후랑크 1kg','베이컨소시지 200g'],'베이컨류':['슬라이스 베이컨 1kg'],'가공육 기타':['떡갈비','함박스테이크']};
@@ -411,26 +427,30 @@ function sampleProductionRows(){
   return rows;
 }
 function sampleIncomingRows(){
-  const vendorsByStorage = {
-    '원재료창고':['도야미트','부경양돈협동조합'],
-    '포재료창고':['경원포장산업(주)','(주)티피지'],
-    '생산포재료창고':['태림포장(주)'],
-    '생산원재료창고':['(주)삼영특수인쇄'],
-    '외부자재창고':['세미산업(주)','(주)웨이브티피에스']
-  };
-  const materials = ['돈육(뒷다리,국산)','외박스/2.5사각','칼집비엔나300g(10입) 파우치','TOP필름/상단'];
+  // code 4xxxxxx=원재료, 6xxxxxx=포재료, 7xxxxxx=기타(소모품)
+  const items = [
+    {code:'4103431', material:'돈육(뒷다리,국산)', storage:'원재료창고', vendors:['도야미트','부경양돈협동조합'], unit:'KG', base:4600},
+    {code:'4103432', material:'돈육(지방,국산)',   storage:'원재료창고', vendors:['도야미트'],                 unit:'KG', base:1900},
+    {code:'6031231', material:'실속스모크소시지1kg 외박스', storage:'생산포재료창고', vendors:['태림포장(주)'],   unit:'EA', base:343},
+    {code:'6029772', material:'칼집비엔나300g 파우치',      storage:'포재료창고',     vendors:['경원포장산업(주)','(주)티피지'], unit:'EA', base:77},
+    {code:'7700648', material:'가성소다',                   storage:'외부자재창고',   vendors:['세미산업(주)'],   unit:'KG', base:520},
+  ];
   let seed = 11; const rnd = ()=> (seed = (seed*9301+49297)%233280)/233280;
   const rows=[], today=new Date();
-  for(let back=55; back>=0; back--){
+  for(let back=130; back>=0; back--){
     const d = new Date(today); d.setDate(d.getDate()-back);
     if(d.getDay()===0) continue;
-    for(const [st, vendors] of Object.entries(vendorsByStorage)) for(const vd of vendors){
-      const qty = Math.round(300 + rnd()*2000);
-      const price = Math.round(150 + rnd()*400);
-      rows.push({date:new Date(d), ds:ymd(d), cat:st, item:vd,
-        material: materials[Math.floor(rnd()*materials.length)],
-        qty, unit:'EA', target:0, amount: qty*price, value: qty*price, memo:''});
-    }
+    const monthDrift = Math.floor(back/30); // 달이 지날수록(과거일수록) 단가가 달라지도록
+    items.forEach(it=>{
+      it.vendors.forEach(vd=>{
+        if(rnd()>0.55) return; // 매일 모든 자재가 입고되진 않도록
+        const qty = Math.round(200 + rnd()*1500);
+        const price = Math.round(it.base * (1 + monthDrift*0.015) * (0.95+rnd()*0.1));
+        rows.push({date:new Date(d), ds:ymd(d), cat:classifyMaterial(it.code), item:vd,
+          material: it.material, storage: it.storage,
+          qty, unit:it.unit, target:0, amount: qty*price, value: qty*price, memo:''});
+      });
+    });
   }
   return rows;
 }
@@ -457,21 +477,23 @@ const TAB_CONFIGS = {
   incoming: {
     fields: [
       {key:'date',   exact:['입고일자'], has:['입고일자','입고일','일자'], req:true},
-      {key:'cat',    exact:['저장위치명'], has:['저장위치명','저장위치','창고']},
+      {key:'code',   exact:['자재'], has:['자재코드','자재번호']},
+      {key:'storage',exact:['저장위치명'], has:['저장위치명','저장위치','창고']},
       {key:'item',   exact:['공급업체명'], has:['공급업체명','거래처명','거래처','공급업체']},
-      {key:'material',exact:['자재명'], has:['자재명','자재','품목명']},
+      {key:'material',exact:['자재명'], has:['자재명','품목명']},
       {key:'qty',    exact:['입고수량'], has:['입고수량','수량']},
       {key:'unit',   exact:['단위'], has:['단위']},
       {key:'amount', exact:['입고금액(원화)','입고금액'], has:['입고금액','금액'], req:true},
       {key:'memo',   exact:['전표번호'], has:['전표번호','비고','메모']},
     ],
-    valueKey:'amount', valueUnit:'원', hasTarget:false, topGroupByCat:false,
-    catLabel:'창고구분', itemLabel:'거래처', itemAllLabel:'전체 거래처',
+    catResolver: gv => classifyMaterial(gv('code')),
+    valueKey:'amount', valueUnit:'원', hasTarget:false, topGroupByCat:false, hasPriceTrend:true,
+    catLabel:'자재구분', itemLabel:'거래처', itemAllLabel:'전체 거래처',
     kpiValueLabel:'총 입고금액', kpiAvgLabel:'일평균 입고금액', kpiRateLabel:'거래처 수', kpiWeekLabel:'이번 주 입고금액',
-    trendValueLabel:'입고금액', trendHint:'— 막대는 창고구분별 입고금액',
+    trendValueLabel:'입고금액', trendHint:'— 막대는 자재구분(원재료/포재료)별 입고금액',
     topTitle:'거래처별 입고금액 TOP 10', detailTitle:'상세 입고 내역', detailValueLabel:'입고금액',
-    csvHead:['일자','창고구분','거래처명','자재명','입고수량','단위','입고금액','비고'],
-    csvRow:r=>[r.ds,r.cat,r.item,r.material,r.qty,r.unit,r.amount,r.memo],
+    csvHead:['일자','자재구분','거래처명','저장위치','자재명','입고수량','단위','입고금액','비고'],
+    csvRow:r=>[r.ds,r.cat,r.item,r.storage,r.material,r.qty,r.unit,r.amount,r.memo],
     sample: sampleIncomingRows,
   }
 };
@@ -509,14 +531,17 @@ function toRecords(matrix, cfg){
     const qty = num(get(r,'qty')), target = num(get(r,'target')), amount = num(get(r,'amount'));
     if(qty===0 && amount===0 && target===0) continue;
     const value = cfg.valueKey==='amount' ? amount : qty;
+    const gv = k => get(r,k);
+    const cat = cfg.catResolver ? cfg.catResolver(gv) : (String(gv('cat')||'').trim() || '미분류');
     rows.push({
       date:d, ds:ymd(d),
-      cat:(String(get(r,'cat')||'').trim() || '미분류'),
-      item:(String(get(r,'item')||'').trim() || '미지정'),
-      material:(String(get(r,'material')||'').trim()),
-      qty, unit:(String(get(r,'unit')||'').trim()),
+      cat,
+      item:(String(gv('item')||'').trim() || '미지정'),
+      material:(String(gv('material')||'').trim()),
+      storage:(String(gv('storage')||'').trim()),
+      qty, unit:(String(gv('unit')||'').trim()),
       target, amount, value,
-      memo:String(get(r,'memo')||'').trim().replace(/\.0$/,'')
+      memo:String(gv('memo')||'').trim().replace(/\.0$/,'')
     });
   }
   rows.sort((a,b)=>a.date-b.date);
@@ -692,6 +717,7 @@ function render(){
   renderPie();
   renderTop();
   renderCatCards();
+  renderPriceTrend();
   renderPivot();
   renderDetail();
 }
@@ -855,6 +881,61 @@ function renderCatCards(){
   }).join('') || '<p style="color:var(--muted)">표시할 데이터가 없습니다.</p>';
 }
 
+/* 자재별 평균단가(입고금액÷입고수량)를 최근월 vs 전월로 비교해 단가차이·증감율을 보여줍니다.
+   (기간 선택 칩과 무관하게, 시트에 있는 가장 최근 두 개 달을 항상 비교합니다) */
+function renderPriceTrend(){
+  const cfg = S.tab.cfg;
+  const card = document.getElementById('priceTrendCard');
+  if(!cfg.hasPriceTrend){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+
+  const scoped = S.all.filter(r => S.cats.includes(r.cat) && (S.item===cfg.itemAllLabel || r.item===S.item) && r.material);
+  const months = [...new Set(scoped.map(r=>r.ds.slice(0,7)))].sort();
+  if(months.length < 2){
+    document.getElementById('priceTrendHint').textContent = '— 비교할 전월 데이터가 없습니다';
+    document.getElementById('tblPriceTrend').innerHTML = '<tbody><tr><td style="padding:14px; color:var(--muted); text-align:left;">비교 가능한 두 달 이상의 데이터가 필요합니다.</td></tr></tbody>';
+    return;
+  }
+  const curM = months[months.length-1], prevM = months[months.length-2];
+  document.getElementById('priceTrendHint').textContent = `— ${prevM} → ${curM} 평균단가 비교`;
+
+  const byMat = {};
+  scoped.forEach(r=>{
+    const k = r.material;
+    byMat[k] = byMat[k] || {cat:r.cat, amt:{}, qty:{}};
+    const mo = r.ds.slice(0,7);
+    byMat[k].amt[mo] = (byMat[k].amt[mo]||0) + r.amount;
+    byMat[k].qty[mo] = (byMat[k].qty[mo]||0) + r.qty;
+  });
+
+  const rows = Object.entries(byMat).map(([mat,d])=>{
+    const curQty=d.qty[curM]||0, curAmt=d.amt[curM]||0, prevQty=d.qty[prevM]||0, prevAmt=d.amt[prevM]||0;
+    if(curQty<=0 || prevQty<=0) return null;
+    const curPrice = curAmt/curQty, prevPrice = prevAmt/prevQty;
+    const diff = curPrice-prevPrice;
+    const rate = prevPrice>0 ? diff/prevPrice*100 : null;
+    return {material:mat, cat:d.cat, curPrice, prevPrice, diff, rate};
+  }).filter(Boolean).sort((a,b)=>Math.abs(b.rate)-Math.abs(a.rate));
+
+  if(!rows.length){
+    document.getElementById('tblPriceTrend').innerHTML = '<tbody><tr><td style="padding:14px; color:var(--muted); text-align:left;">두 달 모두 입고 실적이 있는 자재가 없습니다.</td></tr></tbody>';
+    return;
+  }
+
+  let html = `<thead><tr><th style="text-align:left">자재명</th><th style="text-align:left">${cfg.catLabel}</th>
+    <th>${prevM} 평균단가</th><th>${curM} 평균단가</th><th>단가차이</th><th>전월대비 증감율</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    const up = r.diff>0, col = r.diff>0?C('red'):(r.diff<0?C('main'):C('muted'));
+    html += `<tr><td style="text-align:left" class="cell-strong">${r.material}</td>
+      <td style="text-align:left"><span class="badge">${r.cat}</span></td>
+      <td style="color:var(--muted)">${fmt(r.prevPrice)}</td>
+      <td class="cell-strong">${fmt(r.curPrice)}</td>
+      <td style="color:${col}; font-weight:700;">${r.diff>=0?'+':''}${fmt(r.diff)}</td>
+      <td style="color:${col}; font-weight:700;">${up?'▲':(r.diff<0?'▼':'-')} ${Math.abs(r.rate).toFixed(1)}%</td></tr>`;
+  });
+  document.getElementById('tblPriceTrend').innerHTML = html + '</tbody>';
+}
+
 function renderPivot(){
   const days=[...new Set(S.view.map(r=>r.ds))].sort().reverse();
   const cats=[...new Set(S.view.map(r=>r.cat))].sort();
@@ -894,11 +975,12 @@ function renderDetail(){
     });
   }else{
     html = `<thead><tr><th>일자</th><th style="text-align:left">${cfg.catLabel}</th><th style="text-align:left">${cfg.itemLabel}명</th>
-      <th style="text-align:left">자재명</th><th>입고수량</th><th>${cfg.detailValueLabel}</th><th style="text-align:left">비고</th></tr></thead><tbody>`;
+      <th style="text-align:left">저장위치</th><th style="text-align:left">자재명</th><th>입고수량</th><th>${cfg.detailValueLabel}</th><th style="text-align:left">비고</th></tr></thead><tbody>`;
     shown.forEach(r=>{
       html += `<tr><td>${r.ds}</td>
         <td style="text-align:left"><span class="badge">${r.cat}</span></td>
         <td style="text-align:left" class="cell-strong">${r.item}</td>
+        <td style="text-align:left; color:var(--muted2)">${r.storage||''}</td>
         <td style="text-align:left; color:var(--muted2)">${r.material||''}</td>
         <td>${fmt(r.qty)}${r.unit?` <span style="color:var(--muted); font-weight:500;">${r.unit}</span>`:''}</td>
         <td class="cell-strong">${fmt(r.value)}</td>
