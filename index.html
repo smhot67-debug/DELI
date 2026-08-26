@@ -297,6 +297,9 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 }
 .pg-rcpt .card{border:1px solid var(--line); border-radius:10px; background:#fff; padding:16px 18px;}
 .pg-rcpt .card.full{grid-column:1/-1;}
+.pg-rcpt .card.chart-fill{display:flex;flex-direction:column;}
+.pg-rcpt .card.chart-fill #trendChart{flex:1;min-height:220px;display:flex;align-items:stretch;}
+.pg-rcpt .card.chart-fill #trendChart svg{width:100%;height:100%;}
 .pg-rcpt .card h3{font-size:13px; font-weight:700; margin-bottom:2px;}
 .pg-rcpt .card .sub{font-size:11.5px; color:var(--sub); margin-bottom:12px;}
 .pg-rcpt .card table{font-size:12.5px;}
@@ -672,7 +675,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           <div id="insightBody" style="display:none">
             <div class="kpis" id="rkpis"></div>
             <div class="grid2">
-              <div class="card">
+              <div class="card chart-fill">
                 <h3>월별 입고금액 추이</h3>
                 <div class="sub" id="trendSub"></div>
                 <div id="trendChart"></div>
@@ -1246,6 +1249,28 @@ const baseOpts={responsive:true,maintainAspectRatio:false,
   plugins:{legend:{labels:{font:{family:"'Noto Sans KR',sans-serif",size:11},usePointStyle:true,boxWidth:8}}},
   animation:{duration:300}};
 
+function endBarLabelPlugin(totals,unit){
+  return {
+    id:'endBarLabel',
+    afterDatasetsDraw(chart){
+      if(!totals.length) return;
+      const idx=totals.length-1;
+      const val=totals[idx];
+      if(!val) return;
+      const xScale=chart.scales.x, yScale=chart.scales.y;
+      if(!xScale||!yScale) return;
+      const x=xScale.getPixelForValue(idx);
+      const y=yScale.getPixelForValue(val);
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.textAlign='center';
+      ctx.font="700 11px 'Noto Sans KR',sans-serif";
+      ctx.fillStyle=PC.ink;
+      ctx.fillText(fmt(val)+unit,x,Math.max(y-8,12));
+      ctx.restore();
+    }
+  };
+}
 function renderTrend(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort();
   const cats=[...new Set(prodState.view.map(r=>r.cat))].sort();
@@ -1259,7 +1284,9 @@ function renderTrend(){
   if(targets.some(v=>v>0)) ds.push({type:'line',label:'목표량',data:targets,yAxisID:'y1',
     borderColor:PC.ink,borderDash:[5,4],borderWidth:2,pointRadius:3,pointBackgroundColor:PC.ink,tension:.25,order:1});
   newChart('chTrend',{type:'bar',data:{labels:days.map(d=>mdLab(parseDateCell(d))),datasets:ds},
+    plugins:[endBarLabelPlugin(totals,'kg')],
     options:Object.assign({},baseOpts,{
+      layout:{padding:{top:20}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:0,autoSkipPadding:14}},
               y:{stacked:true,beginAtZero:true,max:top,grid:{color:'#EEF1F6'},ticks:{callback:v=>fmt(v)}},
               y1:{display:false,beginAtZero:true,max:top}},
@@ -1272,9 +1299,12 @@ function renderMonthly(){
   const ds=cats.map((c,i)=>({label:c,
     data:mks.map(k=>rows.filter(r=>r.mk===k&&r.cat===c).reduce((t,r)=>t+r.qty,0)),
     backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,stack:'q'}));
-  document.getElementById('monthTotal').textContent=fmt(rows.filter(r=>mks.indexOf(r.mk)>=0).reduce((t,r)=>t+r.qty,0));
+  const monthTotals=mks.map(k=>rows.filter(r=>r.mk===k).reduce((t,r)=>t+r.qty,0));
+  document.getElementById('monthTotal').textContent=fmt(monthTotals.reduce((a,b)=>a+b,0));
   newChart('chMonth',{type:'bar',data:{labels:mks.map(k=>k.replace('-','.')),datasets:ds},
+    plugins:[endBarLabelPlugin(monthTotals,'kg')],
     options:Object.assign({},baseOpts,{
+      layout:{padding:{top:20}},
       scales:{x:{stacked:true,grid:{display:false}},
               y:{stacked:true,beginAtZero:true,grid:{color:'#EEF1F6'},ticks:{callback:v=>fmt(v)}}},
       plugins:Object.assign({},baseOpts.plugins,{tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)+' kg'}}})})});
@@ -1650,20 +1680,20 @@ function shortWon(v){
   return fmt(v);
 }
 function renderTrendSvg(monAmt){
-  const W=1240,H=180,pad=36,bw=(W-pad*2)/12;
+  const W=1240,H=260,pad=40,bw=(W-pad*2)/12;
   const max=Math.max.apply(null,monAmt.slice(1).concat([1]));
   let bars='';
   for(let m=1;m<=12;m++){
-    const h=monAmt[m]/max*(H-56);
-    const x=pad+(m-1)*bw+bw*0.18, y=H-30-h;
+    const h=monAmt[m]/max*(H-80);
+    const x=pad+(m-1)*bw+bw*0.16, y=H-42-h;
     const on=m===selMonth;
-    bars+='<rect x="'+x+'" y="'+y+'" width="'+(bw*0.64)+'" height="'+Math.max(h,monAmt[m]>0?2:0)+'" rx="3" fill="'+(on?'#0f4c81':'#d4dde6')+'"/>';
-    if(monAmt[m]>0) bars+='<text x="'+(x+bw*0.32)+'" y="'+(y-6)+'" font-size="10" fill="'+(on?'#0f4c81':'#9aa4ae')+'" text-anchor="middle" font-weight="'+(on?'700':'400')+'">'+shortWon(monAmt[m])+'</text>';
-    bars+='<text x="'+(x+bw*0.32)+'" y="'+(H-12)+'" font-size="11" fill="'+(on?'#1a1d21':'#6b7280')+'" text-anchor="middle" font-weight="'+(on?'700':'400')+'">'+m+'월</text>';
+    bars+='<rect x="'+x+'" y="'+y+'" width="'+(bw*0.68)+'" height="'+Math.max(h,monAmt[m]>0?2:0)+'" rx="4" fill="'+(on?'#0f4c81':'#d4dde6')+'"/>';
+    if(monAmt[m]>0) bars+='<text x="'+(x+bw*0.34)+'" y="'+(y-10)+'" font-size="15" fill="'+(on?'#0f4c81':'#9aa4ae')+'" text-anchor="middle" font-weight="'+(on?'700':'500')+'">'+shortWon(monAmt[m])+'</text>';
+    bars+='<text x="'+(x+bw*0.34)+'" y="'+(H-16)+'" font-size="15" fill="'+(on?'#1a1d21':'#6b7280')+'" text-anchor="middle" font-weight="'+(on?'700':'500')+'">'+m+'월</text>';
   }
   document.getElementById('trendChart').innerHTML=
-    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;">'+
-    '<line x1="'+pad+'" y1="'+(H-30)+'" x2="'+(W-pad)+'" y2="'+(H-30)+'" stroke="#e5e7eb"/>'+bars+'</svg>';
+    '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:100%;">'+
+    '<line x1="'+pad+'" y1="'+(H-42)+'" x2="'+(W-pad)+'" y2="'+(H-42)+'" stroke="#e5e7eb"/>'+bars+'</svg>';
   document.getElementById('trendSub').textContent=selYear+'년 · 선택한 월이 강조됩니다';
 }
 function renderPriceMoves(fr){
@@ -1756,6 +1786,22 @@ function buildReceiptSupplierIndex(){
   });
   return idx;
 }
+/* 자재코드(피벗 상세와 동일한 코드) 기준 정확 매칭 — 이름이 비슷해 보이는 다른 자재/연도와
+   섞이지 않도록 이름매칭보다 우선 사용 */
+function buildReceiptSupplierIndexByCode(){
+  const idx=new Map();
+  if(!rcpt.rows.length) return idx;
+  rcpt.rows.forEach(r=>{
+    const code=String(r.matCode||'').trim().replace(/\.0$/,'');
+    if(!code) return;
+    if(!idx.has(code)) idx.set(code,new Map());
+    const sm=idx.get(code);
+    const supKey=r.supName||r.supCode;
+    if(!supKey) return;
+    sm.set(supKey,(sm.get(supKey)||0)+r.qty);
+  });
+  return idx;
+}
 function lookupReceiptSuppliers(desc,idx){
   const key=normName(desc);
   if(!key) return null;
@@ -1783,8 +1829,9 @@ function renderLedger(){
 
   const N=months.length;
   const ownSup=fr.some(r=>r.sup);
+  const codeIdx=buildReceiptSupplierIndexByCode();
   const receiptIdx=buildReceiptSupplierIndex();
-  const hasSup=ownSup||receiptIdx.size>0;
+  const hasSup=ownSup||codeIdx.size>0||receiptIdx.size>0;
 
   let h1='<tr class="grp-row"><th class="sticky l"></th><th class="sticky2 l"></th>'+(hasSup?'<th class="l"></th>':'');
   h1+='<th colspan="'+N+'" class="grp-month blk-start">수량</th>';
@@ -1810,8 +1857,10 @@ function renderLedger(){
     const total=months.reduce((s,m)=>s+(o.mon[m]?o.mon[m].a:0),0);
     let supRank=Object.entries(o.supQty).sort((a,b)=>b[1]-a[1]);
     let viaReceipts=false;
-    if(!supRank.length&&receiptIdx.size){
-      const sm=lookupReceiptSuppliers(o.desc,receiptIdx);
+    if(!supRank.length){
+      const codeKey=String(mat||'').trim().replace(/\.0$/,'');
+      let sm=codeIdx.get(codeKey);
+      if(!sm&&receiptIdx.size) sm=lookupReceiptSuppliers(o.desc,receiptIdx);
       if(sm){ supRank=[...sm.entries()].sort((a,b)=>b[1]-a[1]); viaReceipts=true; }
     }
     return {mat,desc:o.desc,cls:o.cls,mon:o.mon,total,
@@ -2075,21 +2124,22 @@ function renderSum(){
     kpiCard('원재료 평균 단가 증감율',wRaw,'자재 '+rawMats.length+'종 반영')+
     kpiCard('포재료 평균 단가 증감율',wPack,'자재 '+packMats.length+'종 반영');
 
-  // 투입자재 단가 변동 — 상승(worst) / 하락(best) 분리
-  const priceRows=AN.mats.map(m=>({name:m.name,b4:m.p4,b5:m.p5,pv:m.pct}))
-    .filter(r=>r.pv!=null && Math.abs(r.pv)>=0.05);
-  const worst=priceRows.filter(r=>r.pv>0).sort((a,b)=>b.pv-a.pv).slice(0,5);
-  const best=priceRows.filter(r=>r.pv<0).sort((a,b)=>a.pv-b.pv).slice(0,5);
-  function changeItems(rows){
-    const mx=Math.max.apply(null,rows.map(r=>Math.abs(r.pv)).concat([1]));
-    return rows.map(r=>
-      '<div class="change-item">'+
-        '<div class="change-item-head"><span class="change-item-name" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'+
-        '<span class="change-item-val">'+fmtP(r.pv)+'</span></div>'+
-        '<div class="change-item-bar-bg"><div class="change-item-bar-fill" style="width:'+(Math.abs(r.pv)/mx*100)+'%"></div></div>'+
-        '<div class="change-item-sub"><span>전월 '+mfmt(r.b4,2)+'원</span><span>당월 '+mfmt(r.b5,2)+'원</span></div>'+
-      '</div>'
-    ).join('')||'<div class="sub" style="color:var(--sub);font-size:.85rem;">해당하는 자재가 없습니다.</div>';
+  // 투입자재 단가 변동 — 거래처별입고 인사이트의 "단가 변동 상위" 표와 동일한 형식
+  // (자재명 | 전월단가 | 당월단가 | 증감률, 소수점 없이) · 원재료/포재료로 구분
+  function priceTable(mats){
+    const rows=mats.map(m=>({name:m.name,b4:m.p4,b5:m.p5,pv:m.pct}))
+      .filter(r=>r.pv!=null && Math.abs(r.pv)>=0.05)
+      .sort((a,b)=>Math.abs(b.pv)-Math.abs(a.pv)).slice(0,10);
+    if(!rows.length) return '<div class="sub" style="color:var(--sub);font-size:.85rem;">해당하는 자재가 없습니다.</div>';
+    return '<table class="major-table"><thead><tr><th class="l">자재명</th>'+
+      '<th>전월 단가</th><th>당월 단가</th><th>증감률</th></tr></thead><tbody>'+
+      rows.map(r=>{
+        const col=r.pv>0?'color:var(--red)':(r.pv<0?'color:var(--blue)':'');
+        return '<tr><td class="l">'+esc(r.name)+'</td>'+
+          '<td>'+fmt(r.b4)+'원</td><td>'+fmt(r.b5)+'원</td>'+
+          '<td class="diff-cell" style="'+col+'">'+fmtP(r.pv)+'</td></tr>';
+      }).join('')+
+      '</tbody></table>';
   }
 
   // 주요 제품 단위당 원가 비교표 — 당월 재료비 규모 기준 상위 10개
@@ -2099,8 +2149,8 @@ function renderSum(){
     majorRows.map(r=>{
       const col=r.upct==null?'':(r.upct>0?'color:var(--red)':(r.upct<0?'color:var(--blue)':''));
       return '<tr><td class="l">'+esc(r.name)+'</td>'+
-        '<td>'+(r.u4==null?'–':mfmt(r.u4,2)+'원')+'</td>'+
-        '<td>'+(r.u5==null?'–':mfmt(r.u5,2)+'원')+'</td>'+
+        '<td>'+(r.u4==null?'–':fmt(r.u4)+'원')+'</td>'+
+        '<td>'+(r.u5==null?'–':fmt(r.u5)+'원')+'</td>'+
         '<td class="diff-cell" style="'+col+'">'+fmtP(r.upct)+'</td></tr>';
     }).join('')+
     '</tbody></table>';
@@ -2111,11 +2161,11 @@ function renderSum(){
   '<div class="sum-grid">'+
     '<div class="sum-kpi-wrap">'+kpiHtml+'</div>'+
     '<div class="sum-cost-change sum-panel">'+
-      '<h3>투입자재 단가 변동</h3>'+
-      '<span class="panel-sub">'+esc(l.p)+' → '+esc(l.c)+' · 상승 '+upCnt+'종 · 하락 '+downCnt+'종 중 변동폭 상위 5개씩</span>'+
+      '<h3>투입자재 단가 변동 상위</h3>'+
+      '<span class="panel-sub">자재 × 전월 대비 입고단가 증감률 · 원재료 · 포재료 구분 (상승 '+upCnt+'종 · 하락 '+downCnt+'종 중)</span>'+
       '<div class="change-list-wrap">'+
-        '<div class="change-list-col worst"><h4>▲ 단가 상승 TOP 5</h4>'+changeItems(worst)+'</div>'+
-        '<div class="change-list-col best"><h4>▼ 단가 하락 TOP 5</h4>'+changeItems(best)+'</div>'+
+        '<div class="change-list-col"><h4>원재료</h4>'+priceTable(rawMats)+'</div>'+
+        '<div class="change-list-col"><h4>포재료</h4>'+priceTable(packMats)+'</div>'+
       '</div>'+
     '</div>'+
     '<div class="sum-major-products sum-panel">'+
