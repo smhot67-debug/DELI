@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>생산 · 자재 통합 대시보드</title>
+<title>통합대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -56,6 +56,9 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .sb-item.on{background:var(--sh-soft);color:var(--sh-main);border-left-color:var(--sh-main);font-weight:700;}
 .sb-group{font-size:.66rem;font-weight:700;color:var(--sh-muted);letter-spacing:.6px;padding:14px 10px 6px;}
 .sb-sub{padding-left:26px;font-size:.82rem;}
+.sb-sub2{padding-left:42px;font-size:.79rem;color:var(--sh-muted);}
+.sb-sub2 .ic{display:none;}
+.sb-sub2.on{font-weight:700;}
 .sb-foot{padding:14px 18px 18px;border-top:1px solid #EBEEF3;}
 .sb-status{display:flex;align-items:center;gap:7px;font-size:.74rem;font-weight:700;color:var(--sh-muted2);margin-bottom:10px;}
 .sb-status .dot{width:7px;height:7px;border-radius:50%;background:var(--sh-muted);flex:0 0 auto;}
@@ -151,6 +154,8 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-prod .foot{text-align:center;color:var(--muted);font-size:.77rem;padding:4px 0 0;}
 .pg-prod .cmp-pos{color:var(--red);font-weight:700;}
 .pg-prod .cmp-neg{color:var(--main);font-weight:700;}
+.pg-prod .cmp-pos-yoy{color:#C2410C;font-weight:700;}
+.pg-prod .cmp-neg-yoy{color:#0E7490;font-weight:700;}
 .pg-prod .cmp-dim{color:#c3c9cf;}
 @media (max-width:1000px){
   .pg-prod .kpis{grid-template-columns:repeat(2,1fr);}
@@ -278,7 +283,6 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt{min-height:auto;background:transparent;}
 .pg-rcpt .wrap{padding:22px 26px 60px;}
 .pg-rcpt #dropzone{display:none !important;}
-.pg-rcpt .tabs{display:flex !important;}
 .pg-rcpt .controls#rcptControls{display:flex !important;}
 .pg-rcpt .sect-hd{margin:18px 0 8px;font-size:12.5px;font-weight:700;color:var(--accent);
   letter-spacing:.04em;display:flex;align-items:center;gap:8px;}
@@ -418,7 +422,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 <div id="lock">
   <div class="lock-box">
     <div class="ic">🔒</div>
-    <h2>생산 · 자재 통합 대시보드</h2>
+    <h2>통합대시보드</h2>
     <p>비밀번호를 입력하세요</p>
     <input id="pwInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off">
     <div class="msg" id="pwMsg"></div>
@@ -432,13 +436,16 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
   <aside class="sidebar">
     <div class="sb-brand">
       <div class="logo">DH</div>
-      <div class="name">생산 · 자재<small>Integrated Dashboard</small></div>
+      <div class="name">통합대시보드<small>Integrated Dashboard</small></div>
     </div>
     <nav class="sb-nav">
       <div class="sb-label">생산</div>
       <div class="sb-item on" data-page="prod"><span class="ic">📦</span>생산실적</div>
       <div class="sb-group">자재관리</div>
-      <div class="sb-item sb-sub" data-page="rcpt"><span class="ic">📥</span>거래처별 입고</div>
+      <div class="sb-item sb-sub" data-page="rcpt" data-rtab="insight"><span class="ic">📥</span>거래처별 입고</div>
+      <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="insight">인사이트</div>
+      <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">피벗 상세</div>
+      <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
       <div class="sb-item sb-sub" data-page="mb"><span class="ic">🔍</span>MB5B 재료비</div>
     </nav>
     <div class="sb-foot">
@@ -582,7 +589,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           <div id="insightBody" style="display:none">
             <div class="kpis" id="rkpis"></div>
             <div class="grid2">
-              <div class="card full">
+              <div class="card">
                 <h3>월별 입고금액 추이</h3>
                 <div class="sub" id="trendSub"></div>
                 <div id="trendChart"></div>
@@ -592,13 +599,25 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
                 <div class="sub">선택 월 입고금액 기준</div>
                 <div id="supShare"></div>
               </div>
-              <div class="card">
+              <div class="card full">
                 <h3>단가 변동 상위</h3>
-                <div class="sub">자재 × 공급업체 · 전월 대비 입고단가 증감률</div>
-                <div class="table-scroll"><table>
-                  <thead><tr><th class="l">자재명</th><th class="l">공급업체명</th><th>전월 단가</th><th>당월 단가</th><th>증감률</th></tr></thead>
-                  <tbody id="priceMoves"></tbody>
-                </table></div>
+                <div class="sub">자재 × 공급업체 · 전월 대비 입고단가 증감률 · 원재료 · 포재료 구분</div>
+                <div class="grid2" style="gap:16px;">
+                  <div>
+                    <div class="sect-hd">원재료</div>
+                    <div class="table-scroll"><table>
+                      <thead><tr><th class="l">자재명</th><th class="l">공급업체명</th><th>전월 단가</th><th>당월 단가</th><th>증감률</th></tr></thead>
+                      <tbody id="priceMovesRaw"></tbody>
+                    </table></div>
+                  </div>
+                  <div>
+                    <div class="sect-hd">포재료</div>
+                    <div class="table-scroll"><table>
+                      <thead><tr><th class="l">자재명</th><th class="l">공급업체명</th><th>전월 단가</th><th>당월 단가</th><th>증감률</th></tr></thead>
+                      <tbody id="priceMovesPack"></tbody>
+                    </table></div>
+                  </div>
+                </div>
               </div>
               <div class="card full">
                 <h3>동일 자재 단가 격차 (구매 절감 기회)</h3>
@@ -721,7 +740,7 @@ const SHEETS = {
   ledger    : '월별수불',
   mb5b      : 'mb5b',
   costPrev  : '원가분석 전월',
-  costCurr  : '원가분석당월',
+  costCurr  : '원가분석 당월',
 };
 const PASSWORD = '7010';
 
@@ -864,6 +883,7 @@ document.querySelectorAll('.sb-item[data-page]').forEach(b=>{
     curPage=b.dataset.page;
     document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='page-'+curPage));
     if(curPage==='prod' && prodState.all.length) renderProd();
+    if(curPage==='rcpt' && b.dataset.rtab) activateTab(b.dataset.rtab);
   };
 });
 function setStatus(kind,text){
@@ -1109,10 +1129,11 @@ function renderCompare(){
   const kc=key(cur),kp=key(prev),ky=key(yoy);
   const cats=[...new Set(rows.map(r=>r.cat))].sort();
   const agg=(mk,cat)=>rows.filter(r=>r.mk===mk&&(!cat||r.cat===cat)).reduce((t,r)=>t+r.qty,0);
-  function cell(now,base){
+  function cell(now,base,variant){
     if(!base){ return '<td class="cmp-dim">-</td><td class="cmp-dim">-</td>'; }
     const d=now-base, p=d/base*100;
-    const cls=d>0?'cmp-pos':(d<0?'cmp-neg':'cmp-dim');
+    const suf=variant==='yoy'?'-yoy':'';
+    const cls=(d>0?'cmp-pos':(d<0?'cmp-neg':'cmp-dim'))+suf;
     return '<td class="'+cls+'">'+(d>0?'+':'')+fmt(d)+'</td>'+
            '<td class="'+cls+'">'+(d>0?'▲ +':(d<0?'▼ ':''))+Math.abs(p).toFixed(1)+'%</td>';
   }
@@ -1123,12 +1144,12 @@ function renderCompare(){
   cats.forEach(c=>{
     const a=agg(kc,c),b=agg(kp,c),y=agg(ky,c);
     html+='<tr><td><span class="badge">'+esc(c)+'</span></td>'+
-      '<td class="cell-strong">'+fmt(a)+'</td><td>'+fmt(b)+'</td>'+cell(a,b)+
-      '<td>'+fmt(y)+'</td>'+cell(a,y)+'</tr>';
+      '<td class="cell-strong">'+fmt(a)+'</td><td>'+fmt(b)+'</td>'+cell(a,b,'mom')+
+      '<td>'+fmt(y)+'</td>'+cell(a,y,'yoy')+'</tr>';
   });
   const A=agg(kc,null),B=agg(kp,null),Y=agg(ky,null);
-  html+='<tr class="total"><td>합계</td><td>'+fmt(A)+'</td><td>'+fmt(B)+'</td>'+cell(A,B)+
-    '<td>'+fmt(Y)+'</td>'+cell(A,Y)+'</tr></tbody>';
+  html+='<tr class="total"><td>합계</td><td>'+fmt(A)+'</td><td>'+fmt(B)+'</td>'+cell(A,B,'mom')+
+    '<td>'+fmt(Y)+'</td>'+cell(A,Y,'yoy')+'</tr></tbody>';
   document.getElementById('tblCompare').innerHTML=html;
 }
 
@@ -1361,6 +1382,7 @@ document.querySelectorAll('#tabs > button[data-v]').forEach(b=>{
     document.querySelectorAll('.pg-rcpt .view').forEach(v=>v.classList.remove('on'));
     document.getElementById('view-'+b.dataset.v).classList.add('on');
     document.getElementById('rcptControls').style.display=(b.dataset.v==='ledger')?'none':'flex';
+    document.querySelectorAll('.sb-sub2[data-page="rcpt"]').forEach(x=>x.classList.toggle('on',x.dataset.rtab===b.dataset.v));
   };
 });
 function activateTab(name){ document.querySelector('#tabs button[data-v="'+name+'"]').click(); }
@@ -1558,25 +1580,32 @@ function renderTrendSvg(monAmt){
   document.getElementById('trendSub').textContent=selYear+'년 · 선택한 월이 강조됩니다';
 }
 function renderPriceMoves(fr){
-  const tb=document.getElementById('priceMoves');
-  if(selMonth<=1){ tb.innerHTML='<tr><td colspan="5" class="l" style="color:var(--sub)">1월은 전월 비교 대상이 없습니다.</td></tr>'; return; }
+  const tbRaw=document.getElementById('priceMovesRaw'), tbPack=document.getElementById('priceMovesPack');
+  if(selMonth<=1){
+    const msg='<tr><td colspan="5" class="l" style="color:var(--sub)">1월은 전월 비교 대상이 없습니다.</td></tr>';
+    tbRaw.innerHTML=msg; tbPack.innerHTML=msg; return;
+  }
   const agg=new Map();
   fr.forEach(r=>{
     if(r.month!==selMonth&&r.month!==selMonth-1) return;
     const k=r.mat+'|'+r.supName;
-    if(!agg.has(k)) agg.set(k,{mat:r.mat,sup:r.supName,mQ:0,mA:0,pQ:0,pA:0});
+    if(!agg.has(k)) agg.set(k,{mat:r.mat,sup:r.supName,cls:r.cls,mQ:0,mA:0,pQ:0,pA:0});
     const o=agg.get(k);
     if(r.month===selMonth){ o.mQ+=r.qty; o.mA+=r.amt; } else { o.pQ+=r.qty; o.pA+=r.amt; }
   });
-  const moves=[...agg.values()].filter(o=>o.mQ>0&&o.pQ>0)
+  const all=[...agg.values()].filter(o=>o.mQ>0&&o.pQ>0)
     .map(o=>{ const cu=o.mA/o.mQ,pu=o.pA/o.pQ; return Object.assign({},o,{cu,pu,pct:pu?(cu-pu)/pu*100:0}); })
-    .filter(o=>Math.abs(o.pct)>=0.05)
-    .sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct)).slice(0,10);
-  tb.innerHTML=moves.length?moves.map(o=>
-    '<tr><td class="l">'+esc(o.mat)+'</td><td class="l">'+esc(o.sup)+'</td>'+
-    '<td>'+fmt(o.pu)+'</td><td>'+fmt(o.cu)+'</td>'+
-    '<td class="chg '+(o.pct>=0?'up':'down')+'">'+(o.pct>=0?'▲ +':'▼ ')+o.pct.toFixed(1)+'%</td></tr>'
-  ).join(''):'<tr><td colspan="5" class="l" style="color:var(--sub)">전월 대비 유의미한 단가 변동이 없습니다.</td></tr>';
+    .filter(o=>Math.abs(o.pct)>=0.05);
+  function fill(tb,cls){
+    const moves=all.filter(o=>o.cls===cls).sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct)).slice(0,10);
+    tb.innerHTML=moves.length?moves.map(o=>
+      '<tr><td class="l">'+esc(o.mat)+'</td><td class="l">'+esc(o.sup)+'</td>'+
+      '<td>'+fmt(o.pu)+'</td><td>'+fmt(o.cu)+'</td>'+
+      '<td class="chg '+(o.pct>=0?'up':'down')+'">'+(o.pct>=0?'▲ +':'▼ ')+o.pct.toFixed(1)+'%</td></tr>'
+    ).join(''):'<tr><td colspan="5" class="l" style="color:var(--sub)">전월 대비 유의미한 단가 변동이 없습니다.</td></tr>';
+  }
+  fill(tbRaw,'원재료');
+  fill(tbPack,'포재료');
 }
 function renderPriceGap(curRows){
   const tb=document.getElementById('priceGap');
