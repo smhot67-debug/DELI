@@ -121,6 +121,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-prod .up{color:var(--green);} .pg-prod .down{color:var(--red);}
 .pg-prod h2.sec{font-size:.97rem;font-weight:700;margin:0 0 14px;}
 .pg-prod h2.sec span.hint{font-weight:400;color:var(--muted);font-size:.79rem;}
+.pg-prod h2.sec span.hint b{color:var(--ink);font-weight:700;}
 .pg-prod .grid-2{display:grid;grid-template-columns:4fr 6fr;gap:18px;}
 .pg-prod .chart-box{position:relative;height:320px;}
 .pg-prod .chart-box.tall{height:380px;}
@@ -456,7 +457,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="insight">인사이트</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">피벗 상세</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
-      <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>원가비교</div>
+      <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>단위당 원가비교</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="prod">제품별</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="mat">투입자재별</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="mb">MB5B 이상탐지</div>
@@ -524,12 +525,12 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           </div>
 
           <div class="card">
-            <h2 class="sec">일자별 생산량 추이 <span class="hint">— 막대는 카테고리별 물량, 점선은 목표량</span></h2>
+            <h2 class="sec">일자별 생산량 추이 <span class="hint">— 총 <b id="trendTotal">-</b>kg · 막대는 카테고리별 물량, 점선은 목표량</span></h2>
             <div class="chart-box tall"><canvas id="chTrend"></canvas></div>
           </div>
 
           <div class="card">
-            <h2 class="sec">월별 생산량 <span class="hint">— 최근 13개월</span></h2>
+            <h2 class="sec">월별 생산량 <span class="hint">— 최근 13개월 · 총 <b id="monthTotal">-</b>kg</span></h2>
             <div class="chart-box"><canvas id="chMonth"></canvas></div>
           </div>
 
@@ -728,7 +729,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           <button data-t="mb" disabled>🔍 MB5B 이상탐지</button>
         </div>
         <section id="sec-sum" class="on">
-          <div class="page-head"><div class="eyebrow">Overview</div><h2>원가 비교 요약</h2>
+          <div class="page-head"><div class="eyebrow">Overview</div><h2>단위당 원가 비교 요약</h2>
             <div class="desc">원재료비·포재료비만 집계 (가공비 제외)</div></div>
           <div class="empty" style="background:var(--card);border:1px solid var(--line);border-radius:11px" id="mbEmptySum">원가분석 시트를 읽는 중…</div>
         </section>
@@ -1185,6 +1186,7 @@ function renderTrend(){
   const targets=days.map(d=>prodState.view.filter(r=>r.ds===d).reduce((t,r)=>t+r.target,0));
   const totals=days.map(d=>prodState.view.filter(r=>r.ds===d).reduce((t,r)=>t+r.qty,0));
   const top=Math.max.apply(null,totals.concat(targets,[1]))*1.15;
+  document.getElementById('trendTotal').textContent=fmt(totals.reduce((a,b)=>a+b,0));
   if(targets.some(v=>v>0)) ds.push({type:'line',label:'목표량',data:targets,yAxisID:'y1',
     borderColor:PC.ink,borderDash:[5,4],borderWidth:2,pointRadius:3,pointBackgroundColor:PC.ink,tension:.25,order:1});
   newChart('chTrend',{type:'bar',data:{labels:days.map(d=>mdLab(parseDateCell(d))),datasets:ds},
@@ -1201,6 +1203,7 @@ function renderMonthly(){
   const ds=cats.map((c,i)=>({label:c,
     data:mks.map(k=>rows.filter(r=>r.mk===k&&r.cat===c).reduce((t,r)=>t+r.qty,0)),
     backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,stack:'q'}));
+  document.getElementById('monthTotal').textContent=fmt(rows.filter(r=>mks.indexOf(r.mk)>=0).reduce((t,r)=>t+r.qty,0));
   newChart('chMonth',{type:'bar',data:{labels:mks.map(k=>k.replace('-','.')),datasets:ds},
     options:Object.assign({},baseOpts,{
       scales:{x:{stacked:true,grid:{display:false}},
@@ -1979,60 +1982,74 @@ function applySort(arr,sec,defKey){
   });
 }
 function renderSum(){
-  const l=L(),t=AN.tAll,inc=t.a5-t.a4;
-  const pct=t.a4>0?(t.a5/t.a4-1)*100:null;
-  const rp=AN.tRaw.a4>0?(AN.tRaw.a5/AN.tRaw.a4-1)*100:null;
-  const pp=AN.tPack.a4>0?(AN.tPack.a5/AN.tPack.a4-1)*100:null;
+  const l=L();
 
-  function moverList(arr,nameKey){
-    const rows=arr.slice().filter(m=>m.state==='증가'||m.state==='감소')
-      .sort((a,b)=>Math.abs(b.inc)-Math.abs(a.inc)).slice(0,5);
-    const mmax=Math.max.apply(null,rows.map(m=>Math.abs(m.inc)).concat([1]));
-    return rows.map(m=>{
-      const w=Math.abs(m.inc)/mmax*100, col=m.inc>0?'#DC2626':'#2563EB';
-      const pctv=nameKey==='prod'?m.upct:m.pct;
-      return '<div class="mhbar"><div class="nm" title="'+esc(m.name)+'">'+esc(m.name)+'</div>'+
-        '<div class="btrack"><div class="bfill" style="width:'+w+'%;background:'+col+'"></div></div>'+
-        '<div class="val">'+(m.inc>0?'▲ +':'▼ ')+'<b>'+mfmt(Math.abs(m.inc))+'</b>원'+(pctv!=null?' · '+fmtP(pctv):'')+'</div></div>';
-    }).join('')||'<div class="sub">비교 대상 증감 항목이 없습니다.</div>';
+  // 자재 투입량(q5) 가중평균 단가 증감율 — 총액이 아닌 "단위당 가격"만으로 본 변동
+  function wavgPct(mats){
+    let num=0,den=0;
+    mats.forEach(m=>{ if(m.pct!=null && m.q5>0){ num+=m.pct*m.q5; den+=m.q5; } });
+    return den>0?num/den:null;
   }
-  const prodMovers=moverList(AN.prods,'prod');
-  const matMovers=moverList(AN.mats,'mat');
+  const rawMats=AN.mats.filter(m=>m.comp==='원재료비');
+  const packMats=AN.mats.filter(m=>m.comp==='포재료비');
+  const wAll=wavgPct(AN.mats), wRaw=wavgPct(rawMats), wPack=wavgPct(packMats);
+  const upCnt=AN.mats.filter(m=>m.pct!=null&&m.pct>0.05).length;
+  const downCnt=AN.mats.filter(m=>m.pct!=null&&m.pct<-0.05).length;
+
+  // 단가(단위당 가격) 기준 TOP5 — 총액 변화가 아니라 %변동이 큰 순
+  function priceMoverList(arr,kind){
+    const rows=arr.map(m=>({
+      name:m.name,
+      b4:kind==='prod'?m.u4:m.p4, b5:kind==='prod'?m.u5:m.p5,
+      pv:kind==='prod'?m.upct:m.pct
+    })).filter(r=>r.pv!=null && Math.abs(r.pv)>=0.05)
+      .sort((a,b)=>Math.abs(b.pv)-Math.abs(a.pv)).slice(0,5);
+    const pmax=Math.max.apply(null,rows.map(r=>Math.abs(r.pv)).concat([1]));
+    return rows.map(r=>{
+      const w=Math.abs(r.pv)/pmax*100, col=r.pv>0?'#DC2626':'#2563EB';
+      return '<div class="mhbar"><div class="nm" title="'+esc(r.name)+'">'+esc(r.name)+'</div>'+
+        '<div class="btrack"><div class="bfill" style="width:'+w+'%;background:'+col+'"></div></div>'+
+        '<div class="val">'+mfmt(r.b4,2)+'원 → <b>'+mfmt(r.b5,2)+'원</b> · '+fmtP(r.pv)+'</div></div>';
+    }).join('')||'<div class="sub">두 달 모두 유효한 단가 데이터가 있는 항목이 없습니다.</div>';
+  }
+  const prodMovers=priceMoverList(AN.prods,'prod');
+  const matMovers=priceMoverList(AN.mats,'mat');
 
   $('#sec-sum').innerHTML=
-  '<div class="page-head"><div class="eyebrow">Overview</div><h2>원가 비교 요약</h2>'+
-  '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 비교 (가공비 제외) · 월중 검토용 — 마감 전 자료라 단가·물량 효과 분해 대신 튀는 숫자 위주로 보여드려요 · 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
+  '<div class="page-head"><div class="eyebrow">Overview</div><h2>단위당 원가 비교 요약</h2>'+
+  '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 (가공비 제외) · 월중 검토용 — 마감 전이라 총 금액은 생산량 차이만으로도 달라져 의미가 적어, 단위당(kg·개당) 가격 변동 기준으로 봅니다 · 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
   '<div class="kpis">'+
-    '<div class="kpi '+(inc>0?'kr':'')+'"><div class="kl">재료비 증감 ('+esc(l.c)+')</div>'+
-      '<div class="kv '+(inc<0?'neg':'pos')+'">'+mfmt(inc/1e6,1)+'<span style="font-size:.8rem;font-weight:600"> 백만</span></div>'+
-      '<div class="kn">'+fmtP(pct)+' · '+esc(l.p)+' '+mfmt(t.a4/1e6,1)+'M → '+esc(l.c)+' '+mfmt(t.a5/1e6,1)+'M</div></div>'+
-    '<div class="kpi kb"><div class="kl">원재료비</div>'+
-      '<div class="kv '+mcls(AN.tRaw.a5-AN.tRaw.a4)+'">'+mfmt((AN.tRaw.a5-AN.tRaw.a4)/1e6,1)+'<span style="font-size:.8rem;font-weight:600"> M</span></div>'+
-      '<div class="kn">'+fmtP(rp)+' · '+esc(l.c)+' '+mfmt(AN.tRaw.a5/1e6,1)+'M</div></div>'+
-    '<div class="kpi ka"><div class="kl">포재료비</div>'+
-      '<div class="kv '+mcls(AN.tPack.a5-AN.tPack.a4)+'">'+mfmt((AN.tPack.a5-AN.tPack.a4)/1e6,1)+'<span style="font-size:.8rem;font-weight:600"> M</span></div>'+
-      '<div class="kn">'+fmtP(pp)+' · '+esc(l.c)+' '+mfmt(AN.tPack.a5/1e6,1)+'M</div></div>'+
-    '<div class="kpi"><div class="kl">비교 대상 자재</div>'+
-      '<div class="kv">'+AN.mats.length+'<span style="font-size:.8rem;font-weight:600"> 종</span></div>'+
-      '<div class="kn">제품 '+AN.prods.length+'종 반영</div></div>'+
+    '<div class="kpi '+(wAll!=null&&wAll>0?'kr':'')+'"><div class="kl">평균 단가 증감율 (전체)</div>'+
+      '<div class="kv '+mcls(wAll)+'">'+fmtP(wAll)+'</div>'+
+      '<div class="kn">당월 투입량 가중평균 · 원재료+포재료</div></div>'+
+    '<div class="kpi kb"><div class="kl">원재료 평균 단가 증감율</div>'+
+      '<div class="kv '+mcls(wRaw)+'">'+fmtP(wRaw)+'</div>'+
+      '<div class="kn">자재 '+rawMats.length+'종 반영</div></div>'+
+    '<div class="kpi ka"><div class="kl">포재료 평균 단가 증감율</div>'+
+      '<div class="kv '+mcls(wPack)+'">'+fmtP(wPack)+'</div>'+
+      '<div class="kn">자재 '+packMats.length+'종 반영</div></div>'+
+    '<div class="kpi"><div class="kl">단가 상승·하락 자재</div>'+
+      '<div class="kv"><span style="color:var(--red)">'+upCnt+'</span><span style="font-size:.8rem;font-weight:600"> 상승</span> / '+
+      '<span style="color:var(--blue)">'+downCnt+'</span><span style="font-size:.8rem;font-weight:600"> 하락</span></div>'+
+      '<div class="kn">비교 대상 자재 '+AN.mats.length+'종 중</div></div>'+
   '</div>'+
-  '<div class="sumcard"><h3>제품별 재료비 증감 TOP 5</h3>'+
-    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 증감액 절대값 기준 · 자세한 내역은 "제품별"에서 확인</div>'+
+  '<div class="sumcard"><h3>제품별 단위당 재료비 증감 TOP 5</h3>'+
+    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 단위당 재료비(원/생산량) 증감율 절대값 기준 · 자세한 내역은 "제품별"에서 확인</div>'+
     prodMovers+
   '</div>'+
-  '<div class="sumcard"><h3>투입자재별 재료비 증감 TOP 5</h3>'+
-    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 증감액 절대값 기준 · 자세한 내역은 "투입자재별"에서 확인</div>'+
+  '<div class="sumcard"><h3>투입자재별 단가 증감 TOP 5</h3>'+
+    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 투입단가(원/투입량) 증감율 절대값 기준 · 자세한 내역은 "투입자재별"에서 확인</div>'+
     matMovers+
   '</div>'+
-  '<div class="hint">여기 보이는 수치는 두 원가분석 시트를 그대로 비교한 것으로, 마감 전이라면 이후 값이 더 바뀔 수 있습니다. 단가차이·물량차이 분해는 "투입자재별" 탭에서 확인할 수 있어요.</div>';
+  '<div class="hint">단가 % — 두 달 모두 투입(생산)이 있을 때만 표시. 총액이 아닌 단위당 가격 기준이라 생산량 변동과 무관하게 실제 가격 변화만 보여줍니다.</div>';
 }
 function renderMat(){
   const l=L(), qEl=$('#matQ'), q=(qEl?qEl.value:'').toLowerCase();
   const only=$('#matOnly')?$('#matOnly').classList.contains('on'):false;
   let rows=AN.mats.filter(r=>!q||String(r.mat).includes(q)||r.name.toLowerCase().includes(q));
   if(only) rows=rows.filter(r=>r.pct!=null&&Math.abs(r.pct)>=thW());
-  rows.forEach(r=>r.incAbs=Math.abs(r.inc));
-  rows=applySort(rows,'mat','incAbs');
+  rows.forEach(r=>{ r.incAbs=Math.abs(r.inc); r.pctAbs=r.pct==null?-1:Math.abs(r.pct); });
+  rows=applySort(rows,'mat','pctAbs');
   const tr=rows.map(r=>'<tr>'+
     '<td class="l" style="font-size:.66rem;color:var(--sub)">'+r.mat+'</td>'+
     '<td class="l"><strong>'+esc(r.name)+'</strong></td>'+
@@ -2064,8 +2081,8 @@ function renderMat(){
 function renderProdMb(){
   const l=L(), qEl=$('#prodQ'), q=(qEl?qEl.value:'').toLowerCase();
   let rows=AN.prods.filter(r=>!q||String(r.prod).includes(q)||r.name.toLowerCase().includes(q));
-  rows.forEach(r=>r.incAbs=Math.abs(r.inc));
-  rows=applySort(rows,'prod','incAbs');
+  rows.forEach(r=>{ r.incAbs=Math.abs(r.inc); r.upctAbs=r.upct==null?-1:Math.abs(r.upct); });
+  rows=applySort(rows,'prod','upctAbs');
   const tr=rows.map(r=>{
     const open=MBS.open.has(r.prod);
     let d='';
