@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>생산 실적 대시보드</title>
+<title>생산·입고 통합 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -172,7 +172,7 @@
 <div id="lock">
   <div class="lock-box">
     <div class="ic">🔒</div>
-    <h2>생산 실적 대시보드</h2>
+    <h2>생산·입고 통합 대시보드</h2>
     <p>비밀번호를 입력하세요</p>
     <input id="pwInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off">
     <div class="msg" id="pwMsg"></div>
@@ -187,7 +187,7 @@
   <aside class="sidebar">
     <div class="sb-brand">
       <div class="logo">P</div>
-      <div class="name">생산 실적<small>Production Dashboard</small></div>
+      <div class="name">생산·입고<small>Production &amp; Incoming</small></div>
     </div>
     <nav class="sb-nav">
       <div class="sb-label">메뉴</div>
@@ -221,7 +221,7 @@
         </div>
         <details>
           <summary>연결이 계속 안 되면 — 직접 붙여넣기</summary>
-          <textarea id="pasteArea" placeholder="일자	카테고리	제품명	생산량	목표량&#10;2026-08-04	햄	로스햄	1250	1300"></textarea>
+          <textarea id="pasteArea" placeholder="탭별 열 구성에 맞게 붙여넣어 주세요"></textarea>
           <button class="btn btn-main" id="btnPaste" style="margin-top:10px; width:100%;">붙여넣은 데이터로 그리기</button>
         </details>
       </div>
@@ -232,7 +232,7 @@
       <div class="card">
         <div class="filters">
           <div class="fgroup">
-            <span class="flabel">기간</span>
+            <span class="flabel" id="periodLabel">기간</span>
             <div class="chips" id="periodChips"></div>
           </div>
           <div class="fgroup">
@@ -242,11 +242,11 @@
             </div>
           </div>
           <div class="fgroup" style="flex:1; min-width:260px;">
-            <span class="flabel">카테고리</span>
+            <span class="flabel" id="catFilterLabel">카테고리</span>
             <div class="chips" id="catChips"></div>
           </div>
           <div class="fgroup">
-            <span class="flabel">제품</span>
+            <span class="flabel" id="itemFilterLabel">제품</span>
             <select id="selItem"></select>
           </div>
         </div>
@@ -255,39 +255,39 @@
       <div class="kpis" id="kpis"></div>
 
       <div class="card">
-        <h2 class="sec">일자별 생산량 추이 <span class="hint">— 막대는 카테고리별 물량, 점선은 목표량</span></h2>
+        <h2 class="sec"><span id="trendTitle">일자별 생산량 추이</span> <span class="hint" id="trendHint">— 막대는 카테고리별 물량, 점선은 목표량</span></h2>
         <div class="chart-box tall"><canvas id="chTrend"></canvas></div>
       </div>
 
       <div class="card">
-        <h2 class="sec">주간 생산량 <span class="hint">— 월요일~일요일 기준, 최근 8주</span></h2>
+        <h2 class="sec"><span id="weekTitle">주간 생산량</span> <span class="hint">— 월요일~일요일 기준, 최근 8주</span></h2>
         <div class="chart-box"><canvas id="chWeek"></canvas></div>
       </div>
 
       <div class="grid-2">
         <div class="card">
-          <h2 class="sec">카테고리 구성비</h2>
+          <h2 class="sec" id="pieTitle">카테고리 구성비</h2>
           <div class="chart-box"><canvas id="chPie"></canvas></div>
         </div>
         <div class="card">
-          <h2 class="sec">제품별 생산량 TOP 10</h2>
+          <h2 class="sec" id="topTitle">제품별 생산량 TOP 10</h2>
           <div class="chart-box"><canvas id="chTop"></canvas></div>
         </div>
       </div>
 
       <div class="card">
-        <h2 class="sec">카테고리별 상세</h2>
+        <h2 class="sec" id="catDetailTitle">카테고리별 상세</h2>
         <div class="cat-grid" id="catGrid"></div>
       </div>
 
       <div class="card">
-        <h2 class="sec">일자 × 카테고리 집계표</h2>
+        <h2 class="sec" id="pivotTitle">일자 × 카테고리 집계표</h2>
         <div class="tbl-scroll"><table id="tblPivot"></table></div>
       </div>
 
       <div class="card">
         <h2 class="sec" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>상세 입력 내역 <span id="rowCount" class="hint"></span></span>
+          <span><span id="detailTitle">상세 입력 내역</span> <span id="rowCount" class="hint"></span></span>
           <span style="display:flex; gap:8px;">
             <button class="btn" id="btnAllRows">전체 보기</button>
             <button class="btn" id="btnCsv">CSV 저장</button>
@@ -323,10 +323,12 @@ const PASSWORD = '7010';
   setTimeout(()=>input.focus(), 200);
 })();
 
+/* ============ 시트 / 탭 설정 ============
+   같은 구글 시트(SHEET_ID) 안에 있는 여러 탭을 각각 하나의 메뉴로 그립니다.
+   새 탭을 추가하려면: 구글시트에 탭 생성 → 아래 TAB_CONFIGS 에 유형 정의(필요시) →
+   TABS 배열에 { id, label, icon, sheet, title, cfg } 한 줄 추가.
+============================================= */
 const SHEET_ID = '1FWnkrFd_QxzkNh8OTTYY2ow5SU5K2iMiq2c8pZh4dIk';
-const TABS = [
-  {id:'production', label:'생산실적', icon:'📦', sheet:'생산실적', title:'생산 실적 대시보드'},
-];
 
 const gviz = (name) => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`
   + (name ? `&sheet=${encodeURIComponent(name)}` : '') + `&headers=1&_=${Date.now()}`;
@@ -378,7 +380,7 @@ function parseDate(v){
 }
 function num(v){
   if(typeof v === 'number') return isFinite(v) ? v : 0;
-  const s = String(v||'').replace(/[,\s]/g,'').replace(/kg|개|ea/gi,'');
+  const s = String(v||'').replace(/[,\s]/g,'').replace(/kg|개|ea|원/gi,'');
   const n = parseFloat(s);
   return isNaN(n) ? 0 : n;
 }
@@ -391,54 +393,8 @@ function weekEnd(d){ const s=weekStart(d); const e=new Date(s); e.setDate(s.getD
 function wlabel(s){ const e=weekEnd(s), f=d=>`${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; return `${f(s)}~${f(e)}`; }
 const wkey = d => ymd(weekStart(d));
 
-const FIELDS = [
-  {key:'date',  exact:['일자','날짜','전기일'],  has:['일자','날짜','생산일','전기일','입고일','작업일','date'], req:true},
-  {key:'cat',   exact:['카테고리','대분류','MRP 관리자'], has:['카테고리','대분류','제품군','품목군','구분','분류','관리자','mrp']},
-  {key:'item',  exact:['제품명','품목명','내역'], has:['제품명','품목','품명','자재내역','자재명','내역','제품']},
-  {key:'qty',   exact:['생산량','생산수량'],     has:['생산량','생산수량','실적수량','생산실적','생산'], req:true},
-  {key:'target',exact:['목표량','계획량'],       has:['목표','계획']},
-  {key:'memo',  exact:['비고'],                 has:['비고','메모']},
-];
-function mapHeader(header){
-  const cols = header.map(h => String(h||'').trim());
-  const used = new Set(), map = {};
-  for(const f of FIELDS){
-    let idx = -1;
-    for(const want of f.exact){ const i = cols.findIndex((c,ci)=>!used.has(ci) && c===want); if(i>=0){idx=i;break;} }
-    if(idx<0) for(const key of f.has){
-      const i = cols.findIndex((c,ci)=>!used.has(ci) && c.replace(/\s/g,'').toLowerCase().includes(key.toLowerCase()));
-      if(i>=0){idx=i;break;}
-    }
-    if(idx>=0){ map[f.key]=idx; used.add(idx); }
-  }
-  const missing = FIELDS.filter(f=>f.req && map[f.key]===undefined).map(f=>f.exact[0]);
-  return {map, missing};
-}
-function toRecords(matrix){
-  if(!matrix.length) return {rows:[], error:'시트가 비어 있습니다.'};
-  const {map, missing} = mapHeader(matrix[0]);
-  if(missing.length) return {rows:[], error:`머리글에서 '${missing.join(', ')}' 열을 찾지 못했습니다.`};
-  const get = (r,k)=> map[k]===undefined ? '' : r[map[k]];
-  const rows = [];
-  for(let i=1;i<matrix.length;i++){
-    const r = matrix[i];
-    const d = parseDate(get(r,'date'));
-    if(!d || isNaN(d)) continue;
-    const qty = num(get(r,'qty')), target = num(get(r,'target'));
-    if(qty===0 && target===0) continue;
-    rows.push({
-      date:d, ds:ymd(d),
-      cat:(String(get(r,'cat')||'').trim() || '미분류'),
-      item:(String(get(r,'item')||'').trim() || '미지정'),
-      qty, target,
-      memo:String(get(r,'memo')||'').trim()
-    });
-  }
-  rows.sort((a,b)=>a.date-b.date);
-  return {rows, error: rows.length ? null : '읽을 수 있는 데이터 행이 없습니다.'};
-}
-
-function sampleRows(){
+/* ============ 탭 유형별 설정 (필드 매핑 + 표시 라벨) ============ */
+function sampleProductionRows(){
   const cats = {'소시지류':['비엔나 1kg','후랑크 1kg','베이컨소시지 200g'],'베이컨류':['슬라이스 베이컨 1kg'],'가공육 기타':['떡갈비','함박스테이크']};
   let seed = 7; const rnd = ()=> (seed = (seed*9301+49297)%233280)/233280;
   const rows=[], today=new Date();
@@ -447,16 +403,130 @@ function sampleRows(){
     if(d.getDay()===0) continue;
     for(const [cat,items] of Object.entries(cats)) for(const item of items){
       const base = 300 + rnd()*1500;
-      rows.push({date:new Date(d), ds:ymd(d), cat, item,
-        qty:Math.round(base), target:Math.round(base*(0.9+rnd()*0.25)), memo:''});
+      const qty = Math.round(base), target = Math.round(base*(0.9+rnd()*0.25));
+      rows.push({date:new Date(d), ds:ymd(d), cat, item, material:'', qty, unit:'kg',
+        target, amount:0, value:qty, memo:''});
+    }
+  }
+  return rows;
+}
+function sampleIncomingRows(){
+  const vendorsByStorage = {
+    '원재료창고':['도야미트','부경양돈협동조합'],
+    '포재료창고':['경원포장산업(주)','(주)티피지'],
+    '생산포재료창고':['태림포장(주)'],
+    '생산원재료창고':['(주)삼영특수인쇄'],
+    '외부자재창고':['세미산업(주)','(주)웨이브티피에스']
+  };
+  const materials = ['돈육(뒷다리,국산)','외박스/2.5사각','칼집비엔나300g(10입) 파우치','TOP필름/상단'];
+  let seed = 11; const rnd = ()=> (seed = (seed*9301+49297)%233280)/233280;
+  const rows=[], today=new Date();
+  for(let back=55; back>=0; back--){
+    const d = new Date(today); d.setDate(d.getDate()-back);
+    if(d.getDay()===0) continue;
+    for(const [st, vendors] of Object.entries(vendorsByStorage)) for(const vd of vendors){
+      const qty = Math.round(300 + rnd()*2000);
+      const price = Math.round(150 + rnd()*400);
+      rows.push({date:new Date(d), ds:ymd(d), cat:st, item:vd,
+        material: materials[Math.floor(rnd()*materials.length)],
+        qty, unit:'EA', target:0, amount: qty*price, value: qty*price, memo:''});
     }
   }
   return rows;
 }
 
-const S = {tab:TABS[0], all:[], view:[], mode:'live', period:'30d', start:null, end:null, cats:[], item:'전체 제품', showAll:false, charts:{}, cache:{}};
+const TAB_CONFIGS = {
+  production: {
+    fields: [
+      {key:'date',  exact:['일자','날짜','전기일'],  has:['일자','날짜','생산일','전기일','입고일','작업일','date'], req:true},
+      {key:'cat',   exact:['카테고리','대분류','MRP 관리자'], has:['카테고리','대분류','제품군','품목군','구분','분류','관리자','mrp']},
+      {key:'item',  exact:['제품명','품목명','내역'], has:['제품명','품목','품명','자재내역','자재명','내역','제품']},
+      {key:'qty',   exact:['생산량','생산수량'],     has:['생산량','생산수량','실적수량','생산실적','생산'], req:true},
+      {key:'target',exact:['목표량','계획량'],       has:['목표','계획']},
+      {key:'memo',  exact:['비고'],                 has:['비고','메모']},
+    ],
+    valueKey:'qty', valueUnit:'kg', hasTarget:true, topGroupByCat:true,
+    catLabel:'카테고리', itemLabel:'제품', itemAllLabel:'전체 제품',
+    kpiValueLabel:'총 생산량', kpiAvgLabel:'일평균 생산량', kpiRateLabel:'목표 달성률', kpiWeekLabel:'이번 주 생산량',
+    trendValueLabel:'생산량', trendHint:'— 막대는 카테고리별 물량, 점선은 목표량',
+    topTitle:'제품별 생산량 TOP 10', detailTitle:'상세 입력 내역', detailValueLabel:'생산량',
+    csvHead:['일자','카테고리','제품명','생산량','목표량','비고'],
+    csvRow:r=>[r.ds,r.cat,r.item,r.qty,r.target,r.memo],
+    sample: sampleProductionRows,
+  },
+  incoming: {
+    fields: [
+      {key:'date',   exact:['입고일자'], has:['입고일자','입고일','일자'], req:true},
+      {key:'cat',    exact:['저장위치명'], has:['저장위치명','저장위치','창고']},
+      {key:'item',   exact:['공급업체명'], has:['공급업체명','거래처명','거래처','공급업체']},
+      {key:'material',exact:['자재명'], has:['자재명','자재','품목명']},
+      {key:'qty',    exact:['입고수량'], has:['입고수량','수량']},
+      {key:'unit',   exact:['단위'], has:['단위']},
+      {key:'amount', exact:['입고금액(원화)','입고금액'], has:['입고금액','금액'], req:true},
+      {key:'memo',   exact:['전표번호'], has:['전표번호','비고','메모']},
+    ],
+    valueKey:'amount', valueUnit:'원', hasTarget:false, topGroupByCat:false,
+    catLabel:'창고구분', itemLabel:'거래처', itemAllLabel:'전체 거래처',
+    kpiValueLabel:'총 입고금액', kpiAvgLabel:'일평균 입고금액', kpiRateLabel:'거래처 수', kpiWeekLabel:'이번 주 입고금액',
+    trendValueLabel:'입고금액', trendHint:'— 막대는 창고구분별 입고금액',
+    topTitle:'거래처별 입고금액 TOP 10', detailTitle:'상세 입고 내역', detailValueLabel:'입고금액',
+    csvHead:['일자','창고구분','거래처명','자재명','입고수량','단위','입고금액','비고'],
+    csvRow:r=>[r.ds,r.cat,r.item,r.material,r.qty,r.unit,r.amount,r.memo],
+    sample: sampleIncomingRows,
+  }
+};
 
-async function fetchSheet(sheetName){
+const TABS = [
+  {id:'production', label:'생산실적', icon:'📦', sheet:'생산실적', title:'생산 실적 대시보드', cfg:TAB_CONFIGS.production},
+  {id:'incoming', label:'거래처별입고', icon:'📥', sheet:'거래처별입고내역', title:'거래처별 입고 대시보드', cfg:TAB_CONFIGS.incoming},
+];
+
+function mapHeader(header, fields){
+  const cols = header.map(h => String(h||'').trim());
+  const used = new Set(), map = {};
+  for(const f of fields){
+    let idx = -1;
+    for(const want of f.exact){ const i = cols.findIndex((c,ci)=>!used.has(ci) && c===want); if(i>=0){idx=i;break;} }
+    if(idx<0) for(const key of f.has){
+      const i = cols.findIndex((c,ci)=>!used.has(ci) && c.replace(/\s/g,'').toLowerCase().includes(key.toLowerCase()));
+      if(i>=0){idx=i;break;}
+    }
+    if(idx>=0){ map[f.key]=idx; used.add(idx); }
+  }
+  const missing = fields.filter(f=>f.req && map[f.key]===undefined).map(f=>f.exact[0]);
+  return {map, missing};
+}
+function toRecords(matrix, cfg){
+  if(!matrix.length) return {rows:[], error:'시트가 비어 있습니다.'};
+  const {map, missing} = mapHeader(matrix[0], cfg.fields);
+  if(missing.length) return {rows:[], error:`머리글에서 '${missing.join(', ')}' 열을 찾지 못했습니다.`};
+  const get = (r,k)=> map[k]===undefined ? '' : r[map[k]];
+  const rows = [];
+  for(let i=1;i<matrix.length;i++){
+    const r = matrix[i];
+    const d = parseDate(get(r,'date'));
+    if(!d || isNaN(d)) continue;
+    const qty = num(get(r,'qty')), target = num(get(r,'target')), amount = num(get(r,'amount'));
+    if(qty===0 && amount===0 && target===0) continue;
+    const value = cfg.valueKey==='amount' ? amount : qty;
+    rows.push({
+      date:d, ds:ymd(d),
+      cat:(String(get(r,'cat')||'').trim() || '미분류'),
+      item:(String(get(r,'item')||'').trim() || '미지정'),
+      material:(String(get(r,'material')||'').trim()),
+      qty, unit:(String(get(r,'unit')||'').trim()),
+      target, amount, value,
+      memo:String(get(r,'memo')||'').trim().replace(/\.0$/,'')
+    });
+  }
+  rows.sort((a,b)=>a.date-b.date);
+  return {rows, error: rows.length ? null : '읽을 수 있는 데이터 행이 없습니다.'};
+}
+
+const S = {tab:TABS[0], all:[], view:[], mode:'live', period:'30d', start:null, end:null,
+  cats:[], item:TABS[0].cfg.itemAllLabel, showAll:false, charts:{}, cache:{}};
+
+async function fetchSheet(sheetName, cfg){
   const urls = [gviz(sheetName), gviz(null)];
   let lastErr = null;
   for(const url of urls){
@@ -466,7 +536,7 @@ async function fetchSheet(sheetName){
       const text = await res.text();
       if(/^\s*</.test(text) || text.includes('google.visualization.Query.setResponse'))
         throw new Error('시트가 비공개 상태이거나 로그인 화면이 반환됐습니다.');
-      const {rows, error} = toRecords(parseDelimited(text, ','));
+      const {rows, error} = toRecords(parseDelimited(text, ','), cfg);
       if(rows.length) return {rows, error:null};
       lastErr = error;
     }catch(e){ lastErr = e.message; }
@@ -476,7 +546,7 @@ async function fetchSheet(sheetName){
 
 async function load(showSpinner=true){
   if(showSpinner) setStatus('demo','불러오는 중…');
-  const {rows, error} = await fetchSheet(S.tab.sheet);
+  const {rows, error} = await fetchSheet(S.tab.sheet, S.tab.cfg);
   if(rows.length){
     S.all = rows; S.mode='live'; S.cache[S.tab.id] = rows;
     setStatus('live','시트 연결됨');
@@ -508,20 +578,34 @@ function useRows(rows, mode, label){
   initFilters(); render();
 }
 
+function applyTabLabels(cfg){
+  document.getElementById('catFilterLabel').textContent = cfg.catLabel;
+  document.getElementById('itemFilterLabel').textContent = cfg.itemLabel;
+  document.getElementById('trendTitle').textContent = `일자별 ${cfg.trendValueLabel} 추이`;
+  document.getElementById('trendHint').textContent = cfg.trendHint;
+  document.getElementById('weekTitle').textContent = `주간 ${cfg.trendValueLabel}`;
+  document.getElementById('pieTitle').textContent = `${cfg.catLabel} 구성비`;
+  document.getElementById('topTitle').textContent = cfg.topTitle;
+  document.getElementById('catDetailTitle').textContent = `${cfg.catLabel}별 상세`;
+  document.getElementById('pivotTitle').textContent = `일자 × ${cfg.catLabel} 집계표`;
+  document.getElementById('detailTitle').textContent = cfg.detailTitle;
+}
+
 function buildTabbar(){
   const el = document.getElementById('tabbar');
   el.innerHTML = TABS.map(t=>`<div class="sb-item${t.id===S.tab.id?' on':''}" data-id="${t.id}"><span class="ic">${t.icon}</span>${t.label}</div>`).join('')
     + `<div class="sb-item add" id="btnAddTab"><span class="ic">＋</span>새 탭 추가</div>`;
   el.querySelectorAll('.sb-item[data-id]').forEach(b=>b.onclick=()=>switchTab(b.dataset.id));
   document.getElementById('btnAddTab').onclick = ()=>{
-    alert('새 탭을 추가하려면:\n\n1) 구글시트에 새 탭을 만들고 "생산실적"과 같은 열 구성(일자/카테고리/제품명/생산량/목표량/비고)으로 데이터를 입력하세요.\n2) 코드 상단의 TABS 배열에 { id, label, icon, sheet, title } 한 줄을 추가하면 자동으로 이 화면과 동일하게 그려집니다.');
+    alert('새 탭을 추가하려면:\n\n1) 구글시트에 새 탭을 만들고 알맞은 열 구성으로 데이터를 입력하세요.\n2) 코드 상단의 TAB_CONFIGS 에 필드 매핑을, TABS 배열에 { id, label, icon, sheet, title, cfg } 한 줄을 추가하면 자동으로 이 화면과 동일하게 그려집니다.');
   };
 }
 function switchTab(id){
   const tab = TABS.find(t=>t.id===id);
   if(!tab || tab.id===S.tab.id) return;
-  S.tab = tab; S.cats = []; S.item='전체 제품'; S.period='30d'; S.showAll=false;
+  S.tab = tab; S.cats = []; S.item = tab.cfg.itemAllLabel; S.period='30d'; S.showAll=false;
   document.getElementById('pageTitle').textContent = tab.title;
+  applyTabLabels(tab.cfg);
   buildTabbar();
   if(S.cache[id]){ S.all = S.cache[id]; S.mode='live'; setStatus('live','시트 연결됨'); initFilters(); render(); }
   else load();
@@ -548,15 +632,16 @@ function initFilters(){
     else if(S.cats.includes(c)){ if(S.cats.length>1) S.cats = S.cats.filter(x=>x!==c); }
     else S.cats.push(c);
     document.getElementById('catChips').querySelectorAll('.chip.cat').forEach(x=>x.classList.toggle('on', S.cats.includes(x.dataset.c)));
-    S.item = '전체 제품'; buildItemSelect(); render();
+    S.item = S.tab.cfg.itemAllLabel; buildItemSelect(); render();
   });
   applyPeriod(); buildItemSelect();
   document.getElementById('main').classList.remove('hidden');
 }
 function buildItemSelect(){
+  const cfg = S.tab.cfg;
   const items = [...new Set(S.all.filter(r=>S.cats.includes(r.cat)).map(r=>r.item))].sort();
   const sel = document.getElementById('selItem');
-  sel.innerHTML = ['전체 제품',...items].map(i=>`<option${i===S.item?' selected':''}>${i}</option>`).join('');
+  sel.innerHTML = [cfg.itemAllLabel,...items].map(i=>`<option${i===S.item?' selected':''}>${i}</option>`).join('');
   sel.onchange = ()=>{ S.item = sel.value; render(); };
 }
 function applyPeriod(){
@@ -586,16 +671,17 @@ function inRange(r,s,e){ return r.date>=s && r.date<=new Date(e.getFullYear(),e.
 const sum = (a,k)=>a.reduce((t,r)=>t+r[k],0);
 
 function render(){
+  const cfg = S.tab.cfg;
   const s=S.start, e=S.end;
-  S.view = S.all.filter(r => inRange(r,s,e) && S.cats.includes(r.cat) && (S.item==='전체 제품' || r.item===S.item));
+  S.view = S.all.filter(r => inRange(r,s,e) && S.cats.includes(r.cat) && (S.item===cfg.itemAllLabel || r.item===S.item));
 
   const span = Math.round((e-s)/864e5)+1;
   const pe = new Date(s); pe.setDate(pe.getDate()-1);
   const ps = new Date(pe); ps.setDate(ps.getDate()-span+1);
-  const prev = S.all.filter(r => inRange(r,ps,pe) && S.cats.includes(r.cat) && (S.item==='전체 제품' || r.item===S.item));
+  const prev = S.all.filter(r => inRange(r,ps,pe) && S.cats.includes(r.cat) && (S.item===cfg.itemAllLabel || r.item===S.item));
 
   const allCats = [...new Set(S.all.map(r=>r.cat))];
-  const scope = (S.cats.length===allCats.length ? '전체 카테고리' : S.cats.join(', ')) + ' · ' + S.item;
+  const scope = (S.cats.length===allCats.length ? `전체 ${cfg.catLabel}` : S.cats.join(', ')) + ' · ' + S.item;
   const modeTxt = S.mode==='demo' ? ' · 샘플 데이터' : (S.mode==='paste' ? ' · 붙여넣은 데이터' : '');
   document.getElementById('subTitle').textContent = `${ymd(s)} ~ ${ymd(e)} | ${scope}${modeTxt}`;
   document.getElementById('foot').textContent = `마지막 갱신 ${new Date().toLocaleTimeString('ko-KR')}`;
@@ -611,30 +697,37 @@ function render(){
 }
 
 function renderKpi(prev){
+  const cfg = S.tab.cfg;
   const v=S.view;
-  const qty=sum(v,'qty'), tgt=sum(v,'target');
+  const val=sum(v,'value'), tgt=sum(v,'target');
   const days=new Set(v.map(r=>r.ds)).size;
-  const pq=sum(prev,'qty');
-  const diff = pq>0 ? (qty-pq)/pq*100 : null;
+  const pv=sum(prev,'value');
+  const diff = pv>0 ? (val-pv)/pv*100 : null;
 
-  const scoped = S.all.filter(r => S.cats.includes(r.cat) && (S.item==='전체 제품' || r.item===S.item));
+  const scoped = S.all.filter(r => S.cats.includes(r.cat) && (S.item===cfg.itemAllLabel || r.item===S.item));
   const maxDate = scoped.length ? scoped[scoped.length-1].date : new Date();
   const thisWkStart = weekStart(maxDate), thisWkEnd = weekEnd(maxDate);
   const lastWkStart = new Date(thisWkStart); lastWkStart.setDate(lastWkStart.getDate()-7);
   const lastWkEnd = new Date(thisWkEnd); lastWkEnd.setDate(lastWkEnd.getDate()-7);
-  const thisWk = sum(scoped.filter(r=>inRange(r,thisWkStart,thisWkEnd)), 'qty');
-  const lastWk = sum(scoped.filter(r=>inRange(r,lastWkStart,lastWkEnd)), 'qty');
+  const thisWk = sum(scoped.filter(r=>inRange(r,thisWkStart,thisWkEnd)), 'value');
+  const lastWk = sum(scoped.filter(r=>inRange(r,lastWkStart,lastWkEnd)), 'value');
   const wdiff = lastWk>0 ? (thisWk-lastWk)/lastWk*100 : null;
 
   const cards=[
-    {t:'총 생산량', v:fmt(qty), u:'kg', s: diff===null ? '직전 기간 데이터 없음'
+    {t:cfg.kpiValueLabel, v:fmt(val), u:cfg.valueUnit, s: diff===null ? '직전 기간 데이터 없음'
         : `<span class="${diff>=0?'up':'down'}">${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(1)}%</span> 직전 동일기간`, c:'main'},
-    {t:'일평균 생산량', v:fmt(days?qty/days:0), u:'kg', s:`가동 ${days}일`, c:'t1'},
-    {t:'목표 달성률', v: tgt>0?(qty/tgt*100).toFixed(1):'—', u: tgt>0?'%':'', s: tgt>0?`목표 ${fmt(tgt)} kg`:'목표량 미입력',
-      c: tgt>0 ? (qty/tgt>=0.95?'green':(qty/tgt>=0.8?'amber':'red')) : 'muted'},
-    {t:'이번 주 생산량', v:fmt(thisWk), u:'kg', s: wdiff===null ? `${wlabel(thisWkStart)}`
-        : `<span class="${wdiff>=0?'up':'down'}">${wdiff>=0?'▲':'▼'} ${Math.abs(wdiff).toFixed(1)}%</span> 지난 주 대비`, c:'sky'},
+    {t:cfg.kpiAvgLabel, v:fmt(days?val/days:0), u:cfg.valueUnit, s:`가동 ${days}일`, c:'t1'},
   ];
+  if(cfg.hasTarget){
+    cards.push({t:cfg.kpiRateLabel, v: tgt>0?(val/tgt*100).toFixed(1):'—', u: tgt>0?'%':'', s: tgt>0?`목표 ${fmt(tgt)} ${cfg.valueUnit}`:'목표량 미입력',
+      c: tgt>0 ? (val/tgt>=0.95?'green':(val/tgt>=0.8?'amber':'red')) : 'muted'});
+  }else{
+    const cnt = new Set(v.map(r=>r.item)).size;
+    cards.push({t:cfg.kpiRateLabel, v:fmt(cnt), u:'개', s:`${cfg.itemLabel} 기준`, c:'t3'});
+  }
+  cards.push({t:cfg.kpiWeekLabel, v:fmt(thisWk), u:cfg.valueUnit, s: wdiff===null ? `${wlabel(thisWkStart)}`
+        : `<span class="${wdiff>=0?'up':'down'}">${wdiff>=0?'▲':'▼'} ${Math.abs(wdiff).toFixed(1)}%</span> 지난 주 대비`, c:'sky'});
+
   document.getElementById('kpis').innerHTML = cards.map(k=>`
     <div class="kpi" style="border-top-color:${C(k.c)||'#94A3B8'}">
       <div class="t">${k.t}</div>
@@ -653,90 +746,108 @@ const baseOpts = {responsive:true, maintainAspectRatio:false,
   animation:{duration:350}};
 
 function renderTrend(){
+  const cfg = S.tab.cfg;
   const days=[...new Set(S.view.map(r=>r.ds))].sort();
   const cats=[...new Set(S.view.map(r=>r.cat))].sort();
   const dataset = cats.map((c,i)=>({
-    label:c, data: days.map(d=>S.view.filter(r=>r.ds===d&&r.cat===c).reduce((t,r)=>t+r.qty,0)),
+    label:c, data: days.map(d=>S.view.filter(r=>r.ds===d&&r.cat===c).reduce((t,r)=>t+r.value,0)),
     backgroundColor:PALETTE[i%PALETTE.length], borderRadius:3, stack:'q', order:2
   }));
-  const targets = days.map(d=>S.view.filter(r=>r.ds===d).reduce((t,r)=>t+r.target,0));
-  const totals  = days.map(d=>S.view.filter(r=>r.ds===d).reduce((t,r)=>t+r.qty,0));
-  const top = Math.max(...totals, ...targets, 1)*1.15;
-  if(targets.some(v=>v>0)) dataset.push({type:'line', label:'목표량', data:targets, yAxisID:'y1',
-    borderColor:C('ink'), borderDash:[5,4], borderWidth:2, pointRadius:3, pointBackgroundColor:C('ink'), tension:.25, order:1});
+  const totals = days.map(d=>S.view.filter(r=>r.ds===d).reduce((t,r)=>t+r.value,0));
+  let top;
+  if(cfg.hasTarget){
+    const targets = days.map(d=>S.view.filter(r=>r.ds===d).reduce((t,r)=>t+r.target,0));
+    top = Math.max(...totals, ...targets, 1)*1.15;
+    if(targets.some(v=>v>0)) dataset.push({type:'line', label:'목표량', data:targets, yAxisID:'y1',
+      borderColor:C('ink'), borderDash:[5,4], borderWidth:2, pointRadius:3, pointBackgroundColor:C('ink'), tension:.25, order:1});
+  }else{
+    top = Math.max(...totals, 1)*1.15;
+  }
   newChart('chTrend',{type:'bar', data:{labels:days.map(d=>md(parseDate(d))), datasets:dataset},
     options:{...baseOpts,
       scales:{x:{stacked:true, grid:{display:false}, ticks:{maxRotation:0, autoSkipPadding:14}},
               y:{stacked:true, beginAtZero:true, max:top, grid:{color:'#EEF1F6'}, ticks:{callback:v=>fmt(v)}},
               y1:{display:false, beginAtZero:true, max:top}},
-      plugins:{...baseOpts.plugins, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} kg`}}}}});
+      plugins:{...baseOpts.plugins, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} ${cfg.valueUnit}`}}}}});
 }
 
 function renderWeekly(){
-  const scoped = S.all.filter(r => S.cats.includes(r.cat) && (S.item==='전체 제품' || r.item===S.item));
+  const cfg = S.tab.cfg;
+  const scoped = S.all.filter(r => S.cats.includes(r.cat) && (S.item===cfg.itemAllLabel || r.item===S.item));
   const weeks = [...new Set(scoped.map(r=>wkey(r.date)))].sort().slice(-8);
   const cats = [...new Set(scoped.map(r=>r.cat))].sort();
   const dataset = cats.map((c,i)=>({
-    label:c, data: weeks.map(w=>scoped.filter(r=>wkey(r.date)===w && r.cat===c).reduce((t,r)=>t+r.qty,0)),
+    label:c, data: weeks.map(w=>scoped.filter(r=>wkey(r.date)===w && r.cat===c).reduce((t,r)=>t+r.value,0)),
     backgroundColor:PALETTE[i%PALETTE.length], borderRadius:3, stack:'q'
   }));
   newChart('chWeek',{type:'bar', data:{labels:weeks.map(w=>wlabel(new Date(w))), datasets:dataset},
     options:{...baseOpts,
       scales:{x:{stacked:true, grid:{display:false}},
               y:{stacked:true, beginAtZero:true, grid:{color:'#EEF1F6'}, ticks:{callback:v=>fmt(v)}}},
-      plugins:{...baseOpts.plugins, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} kg`}}}}});
+      plugins:{...baseOpts.plugins, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)} ${cfg.valueUnit}`}}}}});
 }
 
 function renderPie(){
+  const cfg = S.tab.cfg;
   const cats=[...new Set(S.view.map(r=>r.cat))];
-  const data=cats.map(c=>S.view.filter(r=>r.cat===c).reduce((t,r)=>t+r.qty,0));
+  const data=cats.map(c=>S.view.filter(r=>r.cat===c).reduce((t,r)=>t+r.value,0));
   const total=data.reduce((a,b)=>a+b,0);
   const center={id:'ct', afterDraw(ch){
     const {ctx,chartArea}=ch; if(!chartArea) return;
     const x=(chartArea.left+chartArea.right)/2, y=(chartArea.top+chartArea.bottom)/2;
     ctx.save(); ctx.textAlign='center'; ctx.fillStyle=C('ink');
     ctx.font="700 19px 'Noto Sans SC', 'Noto Sans KR', sans-serif"; ctx.fillText(fmt(total), x, y-2);
-    ctx.font="500 11px 'Noto Sans SC', 'Noto Sans KR', sans-serif"; ctx.fillStyle=C('muted'); ctx.fillText('kg', x, y+17);
+    ctx.font="500 11px 'Noto Sans SC', 'Noto Sans KR', sans-serif"; ctx.fillStyle=C('muted'); ctx.fillText(cfg.valueUnit, x, y+17);
     ctx.restore();
   }};
   newChart('chPie',{type:'doughnut',
     data:{labels:cats, datasets:[{data, backgroundColor:PALETTE, borderWidth:2, borderColor:'#fff'}]},
     options:{...baseOpts, cutout:'64%',
       plugins:{legend:{position:'bottom', labels:{...baseOpts.plugins.legend.labels, padding:13}},
-               tooltip:{callbacks:{label:c=>`${c.label}: ${fmt(c.parsed)} kg (${total?(c.parsed/total*100).toFixed(1):0}%)`}}}},
+               tooltip:{callbacks:{label:c=>`${c.label}: ${fmt(c.parsed)} ${cfg.valueUnit} (${total?(c.parsed/total*100).toFixed(1):0}%)`}}}},
     plugins:[center]});
 }
 
 function renderTop(){
-  const map={};
-  S.view.forEach(r=>{ const k=r.item+'||'+r.cat; map[k]=(map[k]||0)+r.qty; });
-  const arr=Object.entries(map).map(([k,v])=>({item:k.split('||')[0], cat:k.split('||')[1], v}))
-    .sort((a,b)=>b.v-a.v).slice(0,10).reverse();
+  const cfg = S.tab.cfg;
   const cats=[...new Set(S.view.map(r=>r.cat))].sort();
+  let arr;
+  if(cfg.topGroupByCat){
+    const map={};
+    S.view.forEach(r=>{ const k=r.item+'||'+r.cat; map[k]=(map[k]||0)+r.value; });
+    arr=Object.entries(map).map(([k,v])=>({item:k.split('||')[0], cat:k.split('||')[1], v}))
+      .sort((a,b)=>b.v-a.v).slice(0,10).reverse();
+  }else{
+    const map={};
+    S.view.forEach(r=>{ map[r.item]=(map[r.item]||0)+r.value; });
+    arr=Object.entries(map).map(([item,v])=>({item, cat:null, v}))
+      .sort((a,b)=>b.v-a.v).slice(0,10).reverse();
+  }
   newChart('chTop',{type:'bar',
     data:{labels:arr.map(a=>a.item), datasets:[{data:arr.map(a=>a.v), borderRadius:4,
-      backgroundColor:arr.map(a=>PALETTE[cats.indexOf(a.cat)%PALETTE.length])}]},
+      backgroundColor: cfg.topGroupByCat ? arr.map(a=>PALETTE[cats.indexOf(a.cat)%PALETTE.length]) : C('main')}]},
     options:{...baseOpts, indexAxis:'y',
       scales:{x:{beginAtZero:true, grid:{color:'#EEF1F6'}, ticks:{callback:v=>fmt(v)}}, y:{grid:{display:false}}},
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${fmt(c.parsed.x)} kg`}}}}});
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>`${fmt(c.parsed.x)} ${cfg.valueUnit}`}}}}});
 }
 
 function renderCatCards(){
-  const total=sum(S.view,'qty');
+  const cfg = S.tab.cfg;
+  const total=sum(S.view,'value');
   const cats=[...new Set(S.view.map(r=>r.cat))];
   const stats=cats.map(c=>{
     const rs=S.view.filter(r=>r.cat===c);
-    return {cat:c, qty:sum(rs,'qty'), target:sum(rs,'target'),
+    return {cat:c, val:sum(rs,'value'), target:sum(rs,'target'),
             days:new Set(rs.map(r=>r.ds)).size, items:new Set(rs.map(r=>r.item)).size};
-  }).sort((a,b)=>b.qty-a.qty);
+  }).sort((a,b)=>b.val-a.val);
 
   document.getElementById('catGrid').innerHTML = stats.map(s=>{
-    const ach = s.target>0 ? s.qty/s.target*100 : null;
-    const share = total? s.qty/total*100 : 0;
+    const ach = (cfg.hasTarget && s.target>0) ? s.val/s.target*100 : null;
+    const share = total? s.val/total*100 : 0;
     const col = ach===null ? C('main') : (ach>=95?C('main'):(ach>=80?C('amber'):C('red')));
-    const sub = [s.days?`일평균 ${fmt(s.qty/s.days)}kg`:'', `제품 ${s.items}종`].filter(Boolean).join(' · ');
+    const sub = [s.days?`일평균 ${fmt(s.val/s.days)}${cfg.valueUnit}`:'', `${cfg.itemLabel} ${s.items}개`].filter(Boolean).join(' · ');
     return `<div class="cat-card" style="border-top-color:${col}">
-      <div class="cat-top"><span class="cat-name">${s.cat}</span><span class="cat-qty">${fmt(s.qty)} kg</span></div>
+      <div class="cat-top"><span class="cat-name">${s.cat}</span><span class="cat-qty">${fmt(s.val)} ${cfg.valueUnit}</span></div>
       <div class="bar-label"><span>${ach!==null?'목표 대비 달성률':'전체 대비 비중'}</span>
         <span style="color:${col}; font-weight:700;">${(ach!==null?ach:share).toFixed(1)}%</span></div>
       <div class="track"><div class="fill" style="width:${Math.min(ach!==null?ach:share,100)}%; background:${col}"></div></div>
@@ -749,58 +860,75 @@ function renderPivot(){
   const cats=[...new Set(S.view.map(r=>r.cat))].sort();
   let html = `<thead><tr><th>일자</th>${cats.map(c=>`<th>${c}</th>`).join('')}<th>합계</th></tr></thead><tbody>`;
   days.forEach(d=>{
-    const cells = cats.map(c=>S.view.filter(r=>r.ds===d&&r.cat===c).reduce((t,r)=>t+r.qty,0));
+    const cells = cats.map(c=>S.view.filter(r=>r.ds===d&&r.cat===c).reduce((t,r)=>t+r.value,0));
     html += `<tr><td>${md(parseDate(d))}</td>${cells.map(v=>`<td>${v?fmt(v):'-'}</td>`).join('')}
              <td class="cell-strong">${fmt(cells.reduce((a,b)=>a+b,0))}</td></tr>`;
   });
-  const totals = cats.map(c=>S.view.filter(r=>r.cat===c).reduce((t,r)=>t+r.qty,0));
+  const totals = cats.map(c=>S.view.filter(r=>r.cat===c).reduce((t,r)=>t+r.value,0));
   html += `<tr class="total"><td>합계</td>${totals.map(v=>`<td>${fmt(v)}</td>`).join('')}
            <td>${fmt(totals.reduce((a,b)=>a+b,0))}</td></tr></tbody>`;
   document.getElementById('tblPivot').innerHTML = html;
 }
 
 function renderDetail(){
+  const cfg = S.tab.cfg;
   const rows=[...S.view].sort((a,b)=> b.date-a.date || a.cat.localeCompare(b.cat) || a.item.localeCompare(b.item));
   const shown = S.showAll ? rows : rows.slice(0,300);
   document.getElementById('rowCount').textContent = `— ${fmt(rows.length)}건 중 ${fmt(shown.length)}건 표시`;
   document.getElementById('btnAllRows').textContent = S.showAll ? '최근 300건만' : '전체 보기';
-  let html = `<thead><tr><th>일자</th><th style="text-align:left">카테고리</th><th style="text-align:left">제품명</th>
-    <th>생산량</th><th>목표량</th><th>달성률</th><th style="text-align:left">비고</th></tr></thead><tbody>`;
-  shown.forEach(r=>{
-    const ach = r.target>0 ? r.qty/r.target*100 : null;
-    const col = ach===null ? C('muted') : (ach>=95?C('main'):(ach>=80?C('amber'):C('red')));
-    html += `<tr><td>${r.ds}</td>
-      <td style="text-align:left"><span class="badge">${r.cat}</span></td>
-      <td style="text-align:left" class="cell-strong">${r.item}</td>
-      <td class="cell-strong">${fmt(r.qty)}</td>
-      <td style="color:var(--muted)">${r.target?fmt(r.target):'-'}</td>
-      <td style="color:${col}; font-weight:700">${ach!==null?ach.toFixed(0)+'%':'-'}</td>
-      <td style="text-align:left; color:var(--muted2)">${r.memo||''}</td></tr>`;
-  });
+
+  let html;
+  if(cfg.hasTarget){
+    html = `<thead><tr><th>일자</th><th style="text-align:left">${cfg.catLabel}</th><th style="text-align:left">${cfg.itemLabel}명</th>
+      <th>${cfg.detailValueLabel}</th><th>목표량</th><th>달성률</th><th style="text-align:left">비고</th></tr></thead><tbody>`;
+    shown.forEach(r=>{
+      const ach = r.target>0 ? r.value/r.target*100 : null;
+      const col = ach===null ? C('muted') : (ach>=95?C('main'):(ach>=80?C('amber'):C('red')));
+      html += `<tr><td>${r.ds}</td>
+        <td style="text-align:left"><span class="badge">${r.cat}</span></td>
+        <td style="text-align:left" class="cell-strong">${r.item}</td>
+        <td class="cell-strong">${fmt(r.value)}</td>
+        <td style="color:var(--muted)">${r.target?fmt(r.target):'-'}</td>
+        <td style="color:${col}; font-weight:700">${ach!==null?ach.toFixed(0)+'%':'-'}</td>
+        <td style="text-align:left; color:var(--muted2)">${r.memo||''}</td></tr>`;
+    });
+  }else{
+    html = `<thead><tr><th>일자</th><th style="text-align:left">${cfg.catLabel}</th><th style="text-align:left">${cfg.itemLabel}명</th>
+      <th style="text-align:left">자재명</th><th>입고수량</th><th>${cfg.detailValueLabel}</th><th style="text-align:left">비고</th></tr></thead><tbody>`;
+    shown.forEach(r=>{
+      html += `<tr><td>${r.ds}</td>
+        <td style="text-align:left"><span class="badge">${r.cat}</span></td>
+        <td style="text-align:left" class="cell-strong">${r.item}</td>
+        <td style="text-align:left; color:var(--muted2)">${r.material||''}</td>
+        <td>${fmt(r.qty)}${r.unit?` <span style="color:var(--muted); font-weight:500;">${r.unit}</span>`:''}</td>
+        <td class="cell-strong">${fmt(r.value)}</td>
+        <td style="text-align:left; color:var(--muted2)">${r.memo||''}</td></tr>`;
+    });
+  }
   document.getElementById('tblDetail').innerHTML = html + '</tbody>';
 }
 
 let timer = null;
 function boot(){
+  applyTabLabels(S.tab.cfg);
   buildTabbar();
   document.getElementById('pageTitle').textContent = S.tab.title;
 
   document.getElementById('btnReload').onclick = ()=>load();
   document.getElementById('btnRetry').onclick  = ()=>load();
-  document.getElementById('btnDemo').onclick   = ()=>useRows(sampleRows(),'demo','샘플 데이터');
+  document.getElementById('btnDemo').onclick   = ()=>useRows(S.tab.cfg.sample(),'demo','샘플 데이터');
   document.getElementById('btnAllRows').onclick= ()=>{ S.showAll=!S.showAll; renderDetail(); };
   document.getElementById('btnPaste').onclick  = ()=>{
     const txt = document.getElementById('pasteArea').value.trim();
     if(!txt) return alert('붙여넣은 내용이 없습니다.');
-    const {rows, error} = toRecords(autoParse(txt));
+    const {rows, error} = toRecords(autoParse(txt), S.tab.cfg);
     if(!rows.length) return alert(error || '읽을 수 있는 데이터가 없습니다.');
     useRows(rows,'paste',`붙여넣은 데이터 ${rows.length}건`);
   };
   document.getElementById('btnCsv').onclick = ()=>{
-    const head = ['일자','카테고리','제품명','생산량','목표량','비고'];
-    const body = S.view.map(r=>[r.ds,r.cat,r.item,r.qty,r.target,r.memo]
-      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
-    const blob = new Blob(['\uFEFF'+[head.join(','),...body].join('\n')],{type:'text/csv;charset=utf-8'});
+    const cfg = S.tab.cfg;
+    const body = S.view.map(r=>cfg.csvRow(r).map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+    const blob = new Blob(['\uFEFF'+[cfg.csvHead.join(','),...body].join('\n')],{type:'text/csv;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${S.tab.sheet}_${ymd(S.start)}_${ymd(S.end)}.csv`;
