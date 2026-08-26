@@ -241,9 +241,40 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt tr.grand td.zone-m{background:#0f4c81;}
 .pg-rcpt tr.grand .share .track{background:rgba(255,255,255,.25);}
 .pg-rcpt tr.grand .share .fill{background:#fff;}
-.pg-rcpt #ledgerTable td.sticky, .pg-rcpt #ledgerTable th.sticky{position:sticky; left:0; background:#fff; z-index:3;}
-.pg-rcpt #ledgerTable td.sticky2, .pg-rcpt #ledgerTable th.sticky2{position:sticky; left:var(--stick2-left, 92px); background:#fff; z-index:3; border-right:1px solid var(--line); box-shadow:2px 0 0 rgba(0,0,0,0.02);}
-.pg-rcpt #ledgerTable thead th.sticky, .pg-rcpt #ledgerTable thead th.sticky2{z-index:4;}
+.pg-rcpt #ledgerTable th.sticky,
+.pg-rcpt #ledgerTable td.sticky {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 3;
+    width: 90px; /* 자재 코드 열의 고정 너비 */
+    min-width: 90px;
+    max-width: 90px;
+}
+.pg-rcpt #ledgerTable th.sticky2,
+.pg-rcpt #ledgerTable td.sticky2 {
+    position: sticky;
+    left: 90px; /* 앞선 sticky 열의 너비(90px)와 정확히 일치시켜야 틈이 안 생깁니다 */
+    background: #fff;
+    z-index: 3;
+    border-right: 1px solid var(--line);
+    box-shadow: 2px 0 4px rgba(0,0,0,0.03);
+    width: 200px; /* 자재내역 열의 고정 너비 */
+    min-width: 200px;
+}
+.pg-rcpt #ledgerTable thead th.sticky,
+.pg-rcpt #ledgerTable thead th.sticky2 {
+    z-index: 4; /* 헤더는 데이터보다 위에 위치 */
+}
+/* 항목 행(원재료·N품목)이 sticky 두 열의 고정폭(90px)에 눌려 잘리던 문제 해결 —
+   전용 클래스로 분리해 sticky의 width 제약을 받지 않고 colspan 폭 그대로 sticky 적용 */
+.pg-rcpt #ledgerTable tr.grp td.grp-label {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    text-align: left;
+    padding-left: 12px;
+}
 .pg-rcpt #ledgerTable tbody tr:hover td{background:#fafbfd;}
 .pg-rcpt #ledgerTable td.code-cell{color:var(--sub); font-size:12px;}
 .pg-rcpt #ledgerTable td.desc-cell{max-width:240px; overflow:hidden; text-overflow:ellipsis;}
@@ -417,15 +448,53 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-mb .mbstatus{font-size:.72rem;color:var(--sub);margin-left:auto;white-space:pre-line;}
 .pg-mb .mbstatus.err{color:var(--red);font-weight:700;}
 .pg-mb .mbnav{display:none;}
-.pg-mb .sumcard{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px;margin-bottom:14px;}
-.pg-mb .sumcard h3{font-size:.88rem;font-weight:800;color:var(--navy);margin-bottom:2px;}
-.pg-mb .sumcard .sub{font-size:.7rem;color:var(--sub);margin-bottom:12px;}
-.pg-mb .mhbar{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12.5px;}
-.pg-mb .mhbar .nm{width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;color:var(--ink);font-weight:600;}
-.pg-mb .mhbar .btrack{flex:1;height:16px;background:var(--bg);border-radius:3px;position:relative;overflow:hidden;}
-.pg-mb .mhbar .bfill{position:absolute;top:0;bottom:0;border-radius:3px;}
-.pg-mb .mhbar .val{width:150px;text-align:right;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0;}
-.pg-mb .mhbar .val b{font-weight:800;}
+/* ================= 원가비교 요약(Overview) 전용 스타일 (Gemini Style 적용) ================= */
+.pg-mb #sec-sum .sum-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:24px;margin-bottom:24px;}
+
+.pg-mb .sum-kpi-wrap{grid-column:span 12;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+.pg-mb .sum-kpi-card{background:#fff;border-radius:16px;padding:28px;box-shadow:0 4px 20px rgba(27,42,74,0.06);border:1px solid var(--line);position:relative;overflow:hidden;transition:transform .2s ease;}
+.pg-mb .sum-kpi-card:hover{transform:translateY(-3px);}
+.pg-mb .sum-kpi-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:5px;background:var(--accent);}
+.pg-mb .sum-kpi-card.warn::before{background:var(--red);}
+.pg-mb .sum-kpi-card.good::before{background:var(--blue);}
+.pg-mb .sum-kpi-card .kpi-label{font-size:.95rem;color:var(--sub);font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.pg-mb .sum-kpi-card .kpi-value{font-size:2.2rem;font-weight:900;color:var(--navy);line-height:1.1;letter-spacing:-.5px;}
+.pg-mb .sum-kpi-card .kpi-unit{font-size:1.1rem;color:var(--sub);font-weight:600;margin-left:6px;}
+.pg-mb .sum-kpi-card .kpi-diff{margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);font-size:.9rem;display:flex;align-items:center;gap:8px;}
+.pg-mb .sum-kpi-card .kpi-diff .badge{padding:6px 10px;border-radius:8px;font-weight:800;font-size:.85rem;}
+.pg-mb .sum-kpi-card .kpi-diff .badge.up{background:rgba(220,38,38,0.1);color:var(--red);}
+.pg-mb .sum-kpi-card .kpi-diff .badge.down{background:rgba(37,99,235,0.1);color:var(--blue);}
+.pg-mb .sum-kpi-card .kpi-desc{color:var(--sub);font-size:.85rem;font-weight:500;}
+
+.pg-mb .sum-panel{background:#fff;border-radius:16px;border:1px solid var(--line);padding:24px;box-shadow:0 2px 12px rgba(27,42,74,0.03);}
+.pg-mb .sum-panel h3{font-size:1.15rem;font-weight:800;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.pg-mb .sum-panel .panel-sub{font-size:.85rem;color:var(--sub);font-weight:500;margin-bottom:20px;display:block;}
+
+.pg-mb .sum-cost-change{grid-column:span 12;}
+.pg-mb .change-list-wrap{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+.pg-mb .change-list-col h4{font-size:1rem;font-weight:800;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--line);}
+.pg-mb .change-list-col.worst h4{color:var(--red);border-bottom-color:rgba(220,38,38,0.3);}
+.pg-mb .change-list-col.best h4{color:var(--blue);border-bottom-color:rgba(37,99,235,0.3);}
+.pg-mb .change-item{margin-bottom:16px;padding:12px;border-radius:10px;background:#f8fafc;transition:background .2s;}
+.pg-mb .change-item:hover{background:#f1f5f9;}
+.pg-mb .change-item-head{display:flex;justify-content:space-between;font-size:.95rem;margin-bottom:8px;gap:10px;}
+.pg-mb .change-item-name{font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pg-mb .change-item-val{font-weight:900;white-space:nowrap;}
+.pg-mb .worst .change-item-val{color:var(--red);}
+.pg-mb .best .change-item-val{color:var(--blue);}
+.pg-mb .change-item-bar-bg{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-bottom:8px;}
+.pg-mb .change-item-bar-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+.pg-mb .worst .change-item-bar-fill{background:linear-gradient(90deg,var(--red) 0%,#fc8181 100%);}
+.pg-mb .best .change-item-bar-fill{background:linear-gradient(90deg,var(--blue) 0%,#63b3ed 100%);}
+.pg-mb .change-item-sub{display:flex;justify-content:space-between;font-size:.8rem;color:var(--sub);font-weight:600;}
+
+.pg-mb .sum-major-products{grid-column:span 12;}
+.pg-mb .major-table{width:100%;border-collapse:collapse;}
+.pg-mb .major-table th{background:#f8fafc;color:var(--navy);font-size:.85rem;font-weight:700;padding:14px 12px;border-bottom:2px solid var(--line);text-align:right;}
+.pg-mb .major-table th.l{text-align:left;}
+.pg-mb .major-table td{padding:14px 12px;border-bottom:1px solid var(--line);font-size:.95rem;font-variant-numeric:tabular-nums;text-align:right;}
+.pg-mb .major-table td.l{font-weight:700;color:var(--navy);text-align:left;}
+.pg-mb .major-table .diff-cell{font-weight:800;}
 </style>
 </head>
 <body>
@@ -1797,7 +1866,7 @@ function renderLedger(){
   CLASS_ORDER.forEach(cls=>{
     const grp=items.filter(it=>it.cls===cls).sort((a,b)=>b.total-a.total);
     if(!grp.length) return;
-    html+='<tr class="grp"><td class="sticky l" colspan="'+(hasSup?3:2)+'">'+esc(cls)+' · '+grp.length+'품목</td>';
+    html+='<tr class="grp"><td class="grp-label l" colspan="'+(hasSup?3:2)+'">'+esc(cls)+' · '+grp.length+'품목</td>';
     const gm=sumMon(grp);
     html+=qtyCells(gm)+unitCells(gm)+diffCells(gm)+pctCells(gm)+'</tr>';
     grp.forEach(it=>{
@@ -1814,13 +1883,6 @@ function renderLedger(){
     '<td class="sticky l">총계</td><td class="sticky2 l">'+items.length+'품목</td>'+(hasSup?'<td></td>':'')+
     qtyCells(totMon)+unitCells(totMon)+diffCells(totMon)+pctCells(totMon)+'</tr>';
   body.innerHTML=html;
-
-  requestAnimationFrame(()=>{
-    const table=document.getElementById('ledgerTable');
-    let w=0;
-    table.querySelectorAll('td.sticky, th.sticky').forEach(c=>{ w=Math.max(w,c.getBoundingClientRect().width); });
-    if(w) table.style.setProperty('--stick2-left',Math.ceil(w)+'px');
-  });
 }
 /* =====================================================================
    ③ MB5B 재료비 분석 (원본 로직 유지 / 입력만 구글시트로)
@@ -1996,50 +2058,71 @@ function renderSum(){
   const upCnt=AN.mats.filter(m=>m.pct!=null&&m.pct>0.05).length;
   const downCnt=AN.mats.filter(m=>m.pct!=null&&m.pct<-0.05).length;
 
-  // 단가(단위당 가격) 기준 TOP5 — 총액 변화가 아니라 %변동이 큰 순
-  function priceMoverList(arr,kind){
-    const rows=arr.map(m=>({
-      name:m.name,
-      b4:kind==='prod'?m.u4:m.p4, b5:kind==='prod'?m.u5:m.p5,
-      pv:kind==='prod'?m.upct:m.pct
-    })).filter(r=>r.pv!=null && Math.abs(r.pv)>=0.05)
-      .sort((a,b)=>Math.abs(b.pv)-Math.abs(a.pv)).slice(0,5);
-    const pmax=Math.max.apply(null,rows.map(r=>Math.abs(r.pv)).concat([1]));
-    return rows.map(r=>{
-      const w=Math.abs(r.pv)/pmax*100, col=r.pv>0?'#DC2626':'#2563EB';
-      return '<div class="mhbar"><div class="nm" title="'+esc(r.name)+'">'+esc(r.name)+'</div>'+
-        '<div class="btrack"><div class="bfill" style="width:'+w+'%;background:'+col+'"></div></div>'+
-        '<div class="val">'+mfmt(r.b4,2)+'원 → <b>'+mfmt(r.b5,2)+'원</b> · '+fmtP(r.pv)+'</div></div>';
-    }).join('')||'<div class="sub">두 달 모두 유효한 단가 데이터가 있는 항목이 없습니다.</div>';
+  function pctNum(v){ return v==null?'–':(v>=0?'+':'')+v.toFixed(1); }
+  function kpiCard(label,v,count){
+    const cls=v==null?'':(v>0?'warn':(v<0?'good':''));
+    const badgeCls=v==null?'':(v>0?'up':(v<0?'down':''));
+    const badgeTxt=v==null?'–':(v>0?'▲ 상승':(v<0?'▼ 하락':'변동없음'));
+    return '<div class="sum-kpi-card '+cls+'">'+
+      '<div class="kpi-label">'+label+'</div>'+
+      '<div class="kpi-value">'+pctNum(v)+'<span class="kpi-unit">%</span></div>'+
+      '<div class="kpi-diff"><span class="badge '+badgeCls+'">'+badgeTxt+'</span>'+
+      '<span class="kpi-desc">'+count+'</span></div>'+
+    '</div>';
   }
-  const prodMovers=priceMoverList(AN.prods,'prod');
-  const matMovers=priceMoverList(AN.mats,'mat');
+  const kpiHtml=
+    kpiCard('평균 단가 증감율 (전체)',wAll,'당월 투입량 가중평균 · 원재료+포재료')+
+    kpiCard('원재료 평균 단가 증감율',wRaw,'자재 '+rawMats.length+'종 반영')+
+    kpiCard('포재료 평균 단가 증감율',wPack,'자재 '+packMats.length+'종 반영');
+
+  // 투입자재 단가 변동 — 상승(worst) / 하락(best) 분리
+  const priceRows=AN.mats.map(m=>({name:m.name,b4:m.p4,b5:m.p5,pv:m.pct}))
+    .filter(r=>r.pv!=null && Math.abs(r.pv)>=0.05);
+  const worst=priceRows.filter(r=>r.pv>0).sort((a,b)=>b.pv-a.pv).slice(0,5);
+  const best=priceRows.filter(r=>r.pv<0).sort((a,b)=>a.pv-b.pv).slice(0,5);
+  function changeItems(rows){
+    const mx=Math.max.apply(null,rows.map(r=>Math.abs(r.pv)).concat([1]));
+    return rows.map(r=>
+      '<div class="change-item">'+
+        '<div class="change-item-head"><span class="change-item-name" title="'+esc(r.name)+'">'+esc(r.name)+'</span>'+
+        '<span class="change-item-val">'+fmtP(r.pv)+'</span></div>'+
+        '<div class="change-item-bar-bg"><div class="change-item-bar-fill" style="width:'+(Math.abs(r.pv)/mx*100)+'%"></div></div>'+
+        '<div class="change-item-sub"><span>전월 '+mfmt(r.b4,2)+'원</span><span>당월 '+mfmt(r.b5,2)+'원</span></div>'+
+      '</div>'
+    ).join('')||'<div class="sub" style="color:var(--sub);font-size:.85rem;">해당하는 자재가 없습니다.</div>';
+  }
+
+  // 주요 제품 단위당 원가 비교표 — 당월 재료비 규모 기준 상위 10개
+  const majorRows=AN.prods.slice().sort((a,b)=>b.a5-a.a5).slice(0,10);
+  const majorTable='<table class="major-table"><thead><tr><th class="l">제품명</th>'+
+    '<th>전월 단위당재료비</th><th>당월 단위당재료비</th><th>증감</th></tr></thead><tbody>'+
+    majorRows.map(r=>{
+      const col=r.upct==null?'':(r.upct>0?'color:var(--red)':(r.upct<0?'color:var(--blue)':''));
+      return '<tr><td class="l">'+esc(r.name)+'</td>'+
+        '<td>'+(r.u4==null?'–':mfmt(r.u4,2)+'원')+'</td>'+
+        '<td>'+(r.u5==null?'–':mfmt(r.u5,2)+'원')+'</td>'+
+        '<td class="diff-cell" style="'+col+'">'+fmtP(r.upct)+'</td></tr>';
+    }).join('')+
+    '</tbody></table>';
 
   $('#sec-sum').innerHTML=
   '<div class="page-head"><div class="eyebrow">Overview</div><h2>단위당 원가 비교 요약</h2>'+
   '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 (가공비 제외) · 월중 검토용 — 마감 전이라 총 금액은 생산량 차이만으로도 달라져 의미가 적어, 단위당(kg·개당) 가격 변동 기준으로 봅니다 · 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
-  '<div class="kpis">'+
-    '<div class="kpi '+(wAll!=null&&wAll>0?'kr':'')+'"><div class="kl">평균 단가 증감율 (전체)</div>'+
-      '<div class="kv '+mcls(wAll)+'">'+fmtP(wAll)+'</div>'+
-      '<div class="kn">당월 투입량 가중평균 · 원재료+포재료</div></div>'+
-    '<div class="kpi kb"><div class="kl">원재료 평균 단가 증감율</div>'+
-      '<div class="kv '+mcls(wRaw)+'">'+fmtP(wRaw)+'</div>'+
-      '<div class="kn">자재 '+rawMats.length+'종 반영</div></div>'+
-    '<div class="kpi ka"><div class="kl">포재료 평균 단가 증감율</div>'+
-      '<div class="kv '+mcls(wPack)+'">'+fmtP(wPack)+'</div>'+
-      '<div class="kn">자재 '+packMats.length+'종 반영</div></div>'+
-    '<div class="kpi"><div class="kl">단가 상승·하락 자재</div>'+
-      '<div class="kv"><span style="color:var(--red)">'+upCnt+'</span><span style="font-size:.8rem;font-weight:600"> 상승</span> / '+
-      '<span style="color:var(--blue)">'+downCnt+'</span><span style="font-size:.8rem;font-weight:600"> 하락</span></div>'+
-      '<div class="kn">비교 대상 자재 '+AN.mats.length+'종 중</div></div>'+
-  '</div>'+
-  '<div class="sumcard"><h3>제품별 단위당 재료비 증감 TOP 5</h3>'+
-    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 단위당 재료비(원/생산량) 증감율 절대값 기준 · 자세한 내역은 "제품별"에서 확인</div>'+
-    prodMovers+
-  '</div>'+
-  '<div class="sumcard"><h3>투입자재별 단가 증감 TOP 5</h3>'+
-    '<div class="sub">'+esc(l.p)+' → '+esc(l.c)+' · 투입단가(원/투입량) 증감율 절대값 기준 · 자세한 내역은 "투입자재별"에서 확인</div>'+
-    matMovers+
+  '<div class="sum-grid">'+
+    '<div class="sum-kpi-wrap">'+kpiHtml+'</div>'+
+    '<div class="sum-cost-change sum-panel">'+
+      '<h3>투입자재 단가 변동</h3>'+
+      '<span class="panel-sub">'+esc(l.p)+' → '+esc(l.c)+' · 상승 '+upCnt+'종 · 하락 '+downCnt+'종 중 변동폭 상위 5개씩</span>'+
+      '<div class="change-list-wrap">'+
+        '<div class="change-list-col worst"><h4>▲ 단가 상승 TOP 5</h4>'+changeItems(worst)+'</div>'+
+        '<div class="change-list-col best"><h4>▼ 단가 하락 TOP 5</h4>'+changeItems(best)+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="sum-major-products sum-panel">'+
+      '<h3>주요 제품 단위당 원가 비교</h3>'+
+      '<span class="panel-sub">당월 재료비 규모 상위 10개 제품 · 단위당재료비 = 재료비 ÷ 생산량</span>'+
+      majorTable+
+    '</div>'+
   '</div>'+
   '<div class="hint">단가 % — 두 달 모두 투입(생산)이 있을 때만 표시. 총액이 아닌 단위당 가격 기준이라 생산량 변동과 무관하게 실제 가격 변화만 보여줍니다.</div>';
 }
