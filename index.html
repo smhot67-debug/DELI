@@ -148,6 +148,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-prod tbody td:first-child{text-align:left;color:var(--muted2);font-variant-numeric:normal;}
 .pg-prod tbody tr:hover td{background:#FAFBFD;}
 .pg-prod tbody tr.total td{background:var(--soft);font-weight:700;color:var(--main);border-bottom:none;}
+.pg-prod tbody tr.grp-hdr td{background:var(--soft);color:var(--main);font-weight:700;font-size:.78rem;padding:8px 12px;text-align:left;}
 .pg-prod .badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.71rem;
   font-weight:700;background:var(--soft);color:var(--main);}
 .pg-prod .cell-strong{font-weight:700;color:var(--ink);}
@@ -640,7 +641,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
             </div>
             <div class="card">
               <h2 class="sec">주요 제품별 달성률 <span class="hint">— 상위 · 하위 TOP 5</span></h2>
-              <div class="cat-grid" id="planRankGrid"></div>
+              <div class="tbl-scroll" style="max-height:420px;"><table id="tblPlanRank"></table></div>
             </div>
           </div>
 
@@ -1540,17 +1541,21 @@ function renderPlanTarget(){
 /* 생산실적엔 자재코드가 없어서, 월별목표량의 자재명(제품명)과 생산실적의 제품명을
    정규화 후 서로 포함되는지로 매칭합니다(코드가 없는 상황에서 쓸 수 있는 유일한 연결고리).
    라인 단위 순위는 이미 왼쪽 "경영계획 대비 달성률"에 있으므로, 여기는 개별 제품 단위로 봅니다. */
-function lookupProductActual(matName,rows){
-  const key=normName(matName);
-  if(!key) return 0;
-  return rows.filter(r=>{
-    const rk=normName(r.item);
-    return rk && (rk.includes(key)||key.includes(rk));
-  }).reduce((s,r)=>s+r.qty,0);
+/* 자재명에서 브랜드 표기((DH), ALL), 중량/용량(1kg, 600g), 포장단위 괄호((20입), (냉동) 등)를
+   제거해 "핵심 제품명"만 남깁니다. 이 핵심명으로 비교해야 "(DH)ALL 프랑크 200g(20입)"과
+   생산실적의 "프랑크"가 정확히 매칭되고, 서로 무관한 짧은 이름끼리 잘못 겹쳐 매칭되는 걸 줄입니다. */
+function coreProductKey(s){
+  let t=String(s||'');
+  t=t.replace(/\(?DH\)?/gi,'');
+  t=t.replace(/\bALL\b/gi,'');
+  t=t.replace(/\d+(\.\d+)?\s*(kg|g|ml|l)\b/gi,'');
+  t=t.replace(/\([^)]*\)/g,''); // 포장단위·냉동/냉장 등 괄호 안 내용 전부 제거
+  t=t.replace(/[#,./_\-\s]+/g,'');
+  return t.toLowerCase();
 }
 function renderPlanRank(){
-  const el=document.getElementById('planRankGrid');
-  if(!planT.rows.length){ el.innerHTML='<p style="color:#8A96AB">월별목표량 시트 데이터가 없습니다.</p>'; return; }
+  const el=document.getElementById('tblPlanRank');
+  if(!planT.rows.length){ el.innerHTML='<tbody><tr><td style="padding:14px;color:#8A96AB;text-align:left;">월별목표량 시트 데이터가 없습니다.</td></tr></tbody>'; return; }
   const overlaps=monthOverlaps(prodState.start,prodState.end);
   const prodMap=new Map();
   planT.rows.forEach(r=>{
@@ -1560,28 +1565,56 @@ function renderPlanRank(){
     prodMap.get(key).rows.push(r);
   });
   const inView=prodState.all.filter(r=>inRange(r,prodState.start,prodState.end));
+
+  // 목표(자재코드)별 핵심 제품명 계산
   const items=[...prodMap.values()].map(p=>{
     const target=planTargetForPeriod(p.rows,overlaps,null);
-    const actual=lookupProductActual(p.matName,inView);
-    const name=p.matName||('자재 '+p.matCode);
-    return {name,matCode:p.matCode,target,actual,pct:target>0?actual/target*100:null};
-  }).filter(r=>r.pct!=null);
-  if(!items.length){ el.innerHTML='<p style="color:#8A96AB">비교 가능한 제품이 없습니다. 생산실적의 제품명과 월별목표량의 자재명이 서로 매칭되는지 확인해주세요.</p>'; return; }
-  const sorted=items.slice().sort((a,b)=>b.pct-a.pct);
+    return {matCode:p.matCode,name:p.matName||('자재 '+p.matCode),target,coreKey:coreProductKey(p.matName)};
+  }).filter(p=>p.target>0);
+
+  // 같은 핵심 제품명(예: "200g"/"300g"처럼 포장 단위만 다른 자재들)은 생산실적에서
+  // 한 카테고리로만 잡히는 경우가 많아, 실제 생산량을 그 그룹의 목표 비중대로 나눠 배분합니다.
+  // (그대로 각자 전체 실적을 대입하면 한 SKU가 여러 배로 부풀려 집계되는 문제가 생깁니다.)
+  const coreActualCache=new Map();
+  function actualForCore(coreKey){
+    if(coreActualCache.has(coreKey)) return coreActualCache.get(coreKey);
+    const v=coreKey?inView.filter(r=>{
+      const rk=coreProductKey(r.item);
+      if(!rk) return false;
+      if(rk===coreKey) return true;
+      return coreKey.length>=3 && (rk.includes(coreKey)||coreKey.includes(rk));
+    }).reduce((s,r)=>s+r.qty,0):0;
+    coreActualCache.set(coreKey,v);
+    return v;
+  }
+  const byCore=new Map();
+  items.forEach(it=>{ if(!byCore.has(it.coreKey)) byCore.set(it.coreKey,[]); byCore.get(it.coreKey).push(it); });
+  const result=[];
+  byCore.forEach((group,coreKey)=>{
+    const totalActual=actualForCore(coreKey);
+    const totalTarget=group.reduce((s,it)=>s+it.target,0);
+    group.forEach(it=>{
+      const actual=totalTarget>0?totalActual*(it.target/totalTarget):0;
+      result.push({name:it.name,matCode:it.matCode,target:it.target,actual,pct:it.target>0?actual/it.target*100:null});
+    });
+  });
+  const valid=result.filter(r=>r.pct!=null);
+  if(!valid.length){ el.innerHTML='<tbody><tr><td style="padding:14px;color:#8A96AB;text-align:left;">비교 가능한 제품이 없습니다. 생산실적의 제품명과 월별목표량의 자재명이 서로 매칭되는지 확인해주세요.</td></tr></tbody>'; return; }
+  const sorted=valid.slice().sort((a,b)=>b.pct-a.pct);
   const top=sorted.slice(0,5);
   const bottom=sorted.slice(-5).reverse().filter(r=>top.indexOf(r)<0);
-  function card(r){
+  function row(r){
     const col=r.pct>=95?PC.green:(r.pct>=80?PC.amber:PC.red);
-    return '<div class="cat-card" style="border-top-color:'+col+'">'+
-      '<div class="cat-top"><span class="cat-name" title="'+esc(r.name)+'">'+esc(r.name)+'</span><span class="cat-qty">'+fmt(r.actual)+' kg</span></div>'+
-      '<div class="bar-label"><span>계획대비 달성률</span><span style="color:'+col+';font-weight:700;">'+r.pct.toFixed(1)+'%</span></div>'+
-      '<div class="track"><div class="fill" style="width:'+Math.min(r.pct,100)+'%;background:'+col+'"></div></div>'+
-      '<div class="cat-sub">목표 '+fmt(r.target)+'kg'+(r.matCode?' · 자재코드 '+esc(r.matCode):'')+'</div></div>';
+    return '<tr><td style="text-align:left" class="cell-strong" title="'+esc(r.name)+'">'+esc(r.name)+
+      (r.matCode?' <span style="color:#8A96AB;font-weight:500;font-size:.72rem;">'+esc(r.matCode)+'</span>':'')+'</td>'+
+      '<td>'+fmt(r.target)+'</td><td>'+fmt(r.actual)+'</td>'+
+      '<td style="color:'+col+';font-weight:700">'+r.pct.toFixed(1)+'%</td></tr>';
   }
-  const divider=txt=>'<div class="cat-card-wide" style="font-weight:700;font-size:.78rem;color:'+PC.muted+';letter-spacing:.3px;margin:4px 0 -2px;">'+txt+'</div>';
-  el.innerHTML=
-    (top.length?divider('▲ 상위 '+top.length+'개')+top.map(card).join(''):'')+
-    (bottom.length?divider('▼ 하위 '+bottom.length+'개')+bottom.map(card).join(''):'');
+  const groupHdr=txt=>'<tr class="grp-hdr"><td colspan="4">'+txt+'</td></tr>';
+  el.innerHTML='<thead><tr><th style="text-align:left">제품(자재코드)</th><th>목표(kg)</th><th>실적(kg)</th><th>달성률</th></tr></thead><tbody>'+
+    (top.length?groupHdr('▲ 상위 '+top.length+'개')+top.map(row).join(''):'')+
+    (bottom.length?groupHdr('▼ 하위 '+bottom.length+'개')+bottom.map(row).join(''):'')+
+    '</tbody>';
 }
 function renderProdPivot(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort().reverse();
@@ -2018,7 +2051,9 @@ function normCode(v){
   if(!s) return '';
   const m=s.match(/^(\d+)(?:\.0+)?$/);
   if(m) return m[1];
-  return s.replace(/\s+/g,'').replace(/,/g,'');
+  // 영숫자 코드는 구분자(공백·콤마·하이픈·언더스코어) 차이를 무시하고 대문자로 통일
+  // (예: "CSP_SOY-PRO1" ↔ "CSP-SOY-PRO1" ↔ "CSP SOY PRO1"가 모두 같은 코드로 인식되도록)
+  return s.replace(/[\s,_-]+/g,'').toUpperCase();
 }
 function buildReceiptSupplierIndex(){
   const idx=new Map();
