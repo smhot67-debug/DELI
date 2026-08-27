@@ -526,13 +526,14 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="name">통합대시보드<small>Integrated Dashboard</small></div>
     </div>
     <nav class="sb-nav">
-      <div class="sb-label">생산</div>
+      <div class="sb-label">생산관리</div>
       <div class="sb-item on" data-page="prod"><span class="ic">📦</span>생산실적</div>
       <div class="sb-group">자재관리</div>
       <div class="sb-item sb-sub" data-page="rcpt" data-rtab="insight"><span class="ic">📥</span>거래처별 입고</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="insight">인사이트</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">피벗 상세</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
+      <div class="sb-group">원가관리</div>
       <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>단위당 원가비교</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="prod">제품별</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="mat">투입자재별</div>
@@ -632,9 +633,15 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
             </div>
           </div>
 
-          <div class="card">
-            <h2 class="sec">경영계획 대비 달성률 <span class="hint" id="planHint"></span></h2>
-            <div class="cat-grid" id="planGrid"></div>
+          <div class="grid-2-even">
+            <div class="card">
+              <h2 class="sec">경영계획 대비 달성률 <span class="hint" id="planHint"></span></h2>
+              <div class="cat-grid" id="planGrid"></div>
+            </div>
+            <div class="card">
+              <h2 class="sec">주요 라인별 달성률 <span class="hint">— 상위 · 하위 TOP 5</span></h2>
+              <div class="cat-grid" id="planRankGrid"></div>
+            </div>
           </div>
 
           <div class="card">
@@ -1210,6 +1217,7 @@ function renderProd(){
   renderCatCards();
   renderCapacityUtil();
   renderPlanTarget();
+  renderPlanRank();
   renderProdPivot();
 }
 /* ---- 케파 대비 가동률 계산 (카테고리 필터와 무관하게 선택 기간 전체 기준) ---- */
@@ -1527,6 +1535,34 @@ function renderPlanTarget(){
       '<div class="track"><div class="fill" style="width:'+(pct==null?0:Math.min(pct,100))+'%;background:'+col+'"></div></div>'+
       '<div class="cat-sub">목표 '+fmt(target)+'kg</div></div>';
   }).join('');
+}
+/* 주요 라인별 달성률 상위/하위 TOP5 — 경영계획 대비 달성률과 같은 라인구분2 데이터를 순위로 재구성 */
+function renderPlanRank(){
+  const el=document.getElementById('planRankGrid');
+  if(!planT.rows.length){ el.innerHTML='<p style="color:#8A96AB">월별목표량 시트 데이터가 없습니다.</p>'; return; }
+  const overlaps=monthOverlaps(prodState.start,prodState.end);
+  const lines=[...new Set(planT.rows.map(r=>r.line2))];
+  const rows=lines.map(line=>{
+    const target=planTargetForPeriod(planT.rows,overlaps,line);
+    const actual=lineActualForPeriod(prodState.all,prodState.start,prodState.end,line);
+    return {line,target,actual,pct:target>0?actual/target*100:null};
+  }).filter(r=>r.pct!=null);
+  if(!rows.length){ el.innerHTML='<p style="color:#8A96AB">비교 가능한 라인이 없습니다.</p>'; return; }
+  const sorted=rows.slice().sort((a,b)=>b.pct-a.pct);
+  const top=sorted.slice(0,5);
+  const bottom=sorted.slice(-5).reverse().filter(r=>top.indexOf(r)<0);
+  function card(r){
+    const col=r.pct>=95?PC.green:(r.pct>=80?PC.amber:PC.red);
+    return '<div class="cat-card" style="border-top-color:'+col+'">'+
+      '<div class="cat-top"><span class="cat-name">'+esc(r.line)+'</span><span class="cat-qty">'+fmt(r.actual)+' kg</span></div>'+
+      '<div class="bar-label"><span>계획대비 달성률</span><span style="color:'+col+';font-weight:700;">'+r.pct.toFixed(1)+'%</span></div>'+
+      '<div class="track"><div class="fill" style="width:'+Math.min(r.pct,100)+'%;background:'+col+'"></div></div>'+
+      '<div class="cat-sub">목표 '+fmt(r.target)+'kg</div></div>';
+  }
+  const divider=txt=>'<div class="cat-card-wide" style="font-weight:700;font-size:.78rem;color:'+PC.muted+';letter-spacing:.3px;margin:4px 0 -2px;">'+txt+'</div>';
+  el.innerHTML=
+    (top.length?divider('▲ 상위 '+top.length+'개')+top.map(card).join(''):'')+
+    (bottom.length?divider('▼ 하위 '+bottom.length+'개')+bottom.map(card).join(''):'');
 }
 function renderProdPivot(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort().reverse();
