@@ -127,6 +127,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-prod .chart-box{position:relative;height:320px;}
 .pg-prod .chart-box.tall{height:380px;}
 .pg-prod .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+.pg-prod .cat-grid .cat-card-wide{grid-column:1/-1;}
 .pg-prod .cat-card{background:#fff;border:1px solid var(--line);border-top:3px solid var(--main);
   border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);}
 .pg-prod .cat-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:13px;}
@@ -1048,6 +1049,8 @@ function capacityFamily(cat){
   for(const f of CAPACITY_FAMILIES){ if(cat.indexOf(f)>=0) return f; }
   return null;
 }
+/* 2026년 경영계획 목표량(톤/월, 전 라인 합계) — 케파(물리적 최대 662톤/월)와는 별개의 계획 목표치 */
+const PLAN_TARGET_TON={1:527,2:468,3:558,4:570,5:473,6:550,7:525,8:521,9:553,10:523,11:537,12:538};
 
 const prodState={all:[],view:[],period:'gm',start:null,end:null,cats:[],item:'전체 제품',showAll:false,charts:{}};
 
@@ -1214,15 +1217,43 @@ function renderProd(){
   renderProdDetail();
 }
 /* ---- 케파 대비 가동률 계산 (카테고리 필터와 무관하게 선택 기간 전체 기준) ---- */
+/* 선택 구간이 걸친 각 "달력상 월"마다 실제 겹치는 일수만큼만 그 달의 케파/계획을 비례 배분합니다.
+   예: 기준월처럼 정확히 한 달 전체를 고르면 겹침비율이 1.0이 되어 케파가 오차 없이 662톤(=220+175+147+120)
+   그대로 나옵니다. 여러 달에 걸친 기간(올해 누계 등)은 각 달을 부분적으로 합산합니다. */
+function monthOverlaps(start,end){
+  const out=[];
+  let cur=new Date(start.getFullYear(),start.getMonth(),1);
+  const endCap=new Date(end.getFullYear(),end.getMonth(),1);
+  while(cur<=endCap){
+    const y=cur.getFullYear(), m=cur.getMonth()+1;
+    const mStart=new Date(y,m-1,1), mEnd=new Date(y,m,0);
+    const ovStart=start>mStart?start:mStart;
+    const ovEnd=end<mEnd?end:mEnd;
+    if(ovStart<=ovEnd){
+      const days=Math.round((ovEnd-ovStart)/864e5)+1;
+      out.push({y,m,days,daysInMonth:mEnd.getDate()});
+    }
+    cur=new Date(y,m,1);
+  }
+  return out;
+}
 function computeCapacityUtil(rows,start,end){
   const inR=rows.filter(r=>inRange(r,start,end));
   const byFam={};
-  inR.forEach(r=>{ const f=capacityFamily(r.cat); if(f) byFam[f]=(byFam[f]||0)+r.qty; });
+  let totalActual=0;
+  inR.forEach(r=>{ totalActual+=r.qty; const f=capacityFamily(r.cat); if(f) byFam[f]=(byFam[f]||0)+r.qty; });
+  let actual=0; CAPACITY_FAMILIES.forEach(f=>{ actual+=(byFam[f]||0); });
+  const overlaps=monthOverlaps(start,end);
+  let capacity=0, planTarget=0;
+  overlaps.forEach(o=>{
+    const frac=o.days/o.daysInMonth;
+    CAPACITY_FAMILIES.forEach(f=>{ capacity+=CAPACITY_TON[f]*1000*frac; });
+    if(PLAN_TARGET_TON[o.m]!=null) planTarget+=PLAN_TARGET_TON[o.m]*1000*frac;
+  });
   const periodDays=Math.round((end-start)/864e5)+1;
-  const capMonths=periodDays/30.44; // 월평균 일수로 기간을 케파에 비례 배분
-  let actual=0,capacity=0;
-  CAPACITY_FAMILIES.forEach(f=>{ actual+=(byFam[f]||0); capacity+=CAPACITY_TON[f]*1000*capMonths; });
-  return {actual,capacity,pct:capacity>0?actual/capacity*100:null,byFam,capMonths,periodDays};
+  return {actual,totalActual,capacity,pct:capacity>0?actual/capacity*100:null,
+    planTarget,planPct:planTarget>0?totalActual/planTarget*100:null,
+    byFam,periodDays,overlaps};
 }
 function renderProdKpi(){
   const v=prodState.view;
@@ -1435,11 +1466,12 @@ function renderCatCards(){
 }
 function renderCapacityUtil(){
   const capUtil=computeCapacityUtil(prodState.all,prodState.start,prodState.end);
+  const famCap=ton=>capUtil.overlaps.reduce((s,o)=>s+ton*1000*(o.days/o.daysInMonth),0);
   const hintEl=document.getElementById('capHint');
-  if(hintEl) hintEl.textContent='— 선택 기간 '+capUtil.periodDays+'일 · 케파 '+capUtil.capMonths.toFixed(2)+'개월치로 비례 배분';
-  document.getElementById('capGrid').innerHTML=CAPACITY_FAMILIES.map(f=>{
+  if(hintEl) hintEl.textContent='— 선택 기간 '+capUtil.periodDays+'일 · 달력상 걸친 달만큼 케파·계획 비례 배분(온전한 한 달이면 오차 없음)';
+  const famCards=CAPACITY_FAMILIES.map(f=>{
     const actual=capUtil.byFam[f]||0;
-    const cap=CAPACITY_TON[f]*1000*capUtil.capMonths;
+    const cap=famCap(CAPACITY_TON[f]);
     const pct=cap>0?actual/cap*100:0;
     const col=pct>=90?PC.green:(pct>=70?PC.amber:PC.red);
     return '<div class="cat-card" style="border-top-color:'+col+'">'+
@@ -1449,6 +1481,14 @@ function renderCapacityUtil(){
       '<div class="track"><div class="fill" style="width:'+Math.min(pct,100)+'%;background:'+col+'"></div></div>'+
       '<div class="cat-sub">케파 '+fmt(cap)+'kg ('+CAPACITY_TON[f]+'톤/월 기준)</div></div>';
   }).join('');
+  const planCol=capUtil.planPct==null?PC.muted:(capUtil.planPct>=95?PC.green:(capUtil.planPct>=80?PC.amber:PC.red));
+  const planCard='<div class="cat-card cat-card-wide" style="border-top-color:'+planCol+'">'+
+    '<div class="cat-top"><span class="cat-name">전사 (26년 경영계획)</span><span class="cat-qty">'+fmt(capUtil.totalActual)+' kg</span></div>'+
+    '<div class="bar-label"><span>계획 대비 달성률</span>'+
+    '<span style="color:'+planCol+';font-weight:700;">'+(capUtil.planPct==null?'—':capUtil.planPct.toFixed(1)+'%')+'</span></div>'+
+    '<div class="track"><div class="fill" style="width:'+(capUtil.planPct==null?0:Math.min(capUtil.planPct,100))+'%;background:'+planCol+'"></div></div>'+
+    '<div class="cat-sub">계획 '+fmt(capUtil.planTarget)+'kg · 전체 카테고리 생산량 기준</div></div>';
+  document.getElementById('capGrid').innerHTML=famCards+planCard;
 }
 function renderProdPivot(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort().reverse();
@@ -1861,7 +1901,11 @@ function metricOf(r){
   return {q:r.endQ,a:r.endA};
 }
 const METRIC_LABEL={in:'입고',out:'생산출고',end:'기말재고'};
-function normName(s){ return String(s||'').replace(/^\d+\s*,\s*/,'').replace(/\s+/g,'').toLowerCase(); }
+function normName(s){
+  return String(s||'').replace(/^\d+\s*,\s*/,'')
+    .replace(/[\s#()（）,./\-_]+/g,'') // 공백·#·괄호·쉼표·점·슬래시·하이픈 차이를 무시하고 비교
+    .toLowerCase();
+}
 function buildReceiptSupplierIndex(){
   const idx=new Map();
   if(!rcpt.rows.length) return idx;
@@ -1949,16 +1993,18 @@ function renderLedger(){
     // 월별수불 시트 자체의 납품업체 칸(o.supQty)은 수기 입력이라 신제품·신규자재가 생겨도
     // 자동으로 갱신되지 않는 반면, 자재코드 매칭은 거래처별입고 시트를 새로고침할 때마다
     // 항상 최신 상태로 다시 계산되므로 이걸 우선합니다.
-    let supRank=[], viaReceipts=false, viaOwnCol=false;
+    // 코드로 정확히 매칭됐는지, 이름으로 추정 매칭됐는지 구분 — 정확 매칭은 "≈"(추정) 표시를 붙이지 않습니다.
+    let supRank=[], viaCode=false, viaName=false, viaOwnCol=false;
     const codeKey=String(mat||'').trim().replace(/\.0$/,'');
     let sm=codeIdx.get(codeKey);
-    if(!sm&&receiptIdx.size) sm=lookupReceiptSuppliers(o.desc,receiptIdx);
-    if(sm){ supRank=[...sm.entries()].sort((a,b)=>b[1]-a[1]); viaReceipts=true; }
+    if(sm){ viaCode=true; }
+    else if(receiptIdx.size){ sm=lookupReceiptSuppliers(o.desc,receiptIdx); if(sm) viaName=true; }
+    if(sm){ supRank=[...sm.entries()].sort((a,b)=>b[1]-a[1]); }
     else if(Object.keys(o.supQty).length){
       supRank=Object.entries(o.supQty).sort((a,b)=>b[1]-a[1]); viaOwnCol=true;
     }
     return {mat,desc:o.desc,cls:o.cls,mon:o.mon,total,
-      mainSup:supRank.length?supRank[0][0]:'',supCount:supRank.length,viaReceipts,viaOwnCol};
+      mainSup:supRank.length?supRank[0][0]:'',supCount:supRank.length,viaCode,viaName,viaOwnCol};
   }).filter(it=>months.some(m=>it.mon[m]&&(it.mon[m].q!==0||it.mon[m].a!==0)));
 
   function unitVal(c){ return c&&c.q?c.a/c.q:null; }
@@ -1996,7 +2042,8 @@ function renderLedger(){
   function cleanDesc(s){ return String(s||'').replace(/^\d+\s*,\s*/,'').trim(); }
   function supCell(it){
     if(!it.supCount) return '-';
-    const nm=(it.viaReceipts?'≈ ':'')+esc(it.mainSup);
+    // 자재코드로 정확히 매칭된 경우엔 확정 표시, 자재내역 이름으로 추정 매칭한 경우에만 "≈"(추정)를 붙입니다.
+    const nm=(it.viaName?'≈ ':'')+esc(it.mainSup);
     return it.supCount>1?nm+' <span class="badge-multi">다거래처 · '+it.supCount+'개사</span>':nm;
   }
   function sumMon(list){
