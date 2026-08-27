@@ -111,7 +111,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-prod input[type=date],.pg-prod select{border:1px solid var(--line);border-radius:8px;padding:7px 11px;
   font-size:.82rem;color:var(--ink);background:#fff;font-family:inherit;}
 .pg-prod .range{display:flex;align-items:center;gap:7px;color:var(--muted);}
-.pg-prod .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px;}
+.pg-prod .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:18px;}
 .pg-prod .kpi{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:var(--shadow);
   border:1px solid var(--line);border-top:3px solid var(--main);}
 .pg-prod .kpi .t{font-size:.79rem;color:var(--muted2);font-weight:600;margin-bottom:8px;}
@@ -123,6 +123,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-prod h2.sec span.hint{font-weight:400;color:var(--muted);font-size:.79rem;}
 .pg-prod h2.sec span.hint b{color:var(--ink);font-weight:700;}
 .pg-prod .grid-2{display:grid;grid-template-columns:4fr 6fr;gap:18px;}
+.pg-prod .grid-2-even{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 .pg-prod .chart-box{position:relative;height:320px;}
 .pg-prod .chart-box.tall{height:380px;}
 .pg-prod .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
@@ -161,6 +162,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 @media (max-width:1000px){
   .pg-prod .kpis{grid-template-columns:repeat(2,1fr);}
   .pg-prod .grid-2{grid-template-columns:1fr;}
+  .pg-prod .grid-2-even{grid-template-columns:1fr;}
   .pg-prod .cat-grid{grid-template-columns:1fr;}
 }
 
@@ -232,11 +234,12 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt tr.sup td{background:#fcfdfe; font-size:12.5px;}
 .pg-rcpt tr.sup td.l.name{padding-left:34px; color:#374151;}
 .pg-rcpt tr.sup td .code{color:#9aa4ae; font-size:11px; margin-left:6px;}
+.pg-rcpt td.code{color:var(--sub); font-size:12px; font-variant-numeric:tabular-nums;}
 .pg-rcpt tr.sup:hover td{background:#f5f8fb;}
 .pg-rcpt .share{display:inline-flex; align-items:center; gap:7px; justify-content:flex-end;}
 .pg-rcpt .share .pct{min-width:46px; text-align:right;}
-.pg-rcpt .share .track{width:56px; height:5px; background:var(--line-soft); border-radius:3px; overflow:hidden; flex-shrink:0;}
-.pg-rcpt .share .fill{height:100%; background:var(--accent); border-radius:3px; opacity:.75;}
+.pg-rcpt .share .track{width:56px; height:6px; background:var(--line-soft); border:1px solid var(--line); border-radius:3px; overflow:hidden; flex-shrink:0;}
+.pg-rcpt .share .fill{display:block; height:100%; background:#2563EB; border-radius:3px;}
 .pg-rcpt tr.grand td{background:var(--ink); color:#fff; font-weight:700; font-size:13.5px; border:none; padding:11px 12px; position:sticky; bottom:0; z-index:1;}
 .pg-rcpt tr.grand td.zone-m{background:#0f4c81;}
 .pg-rcpt tr.grand .share .track{background:rgba(255,255,255,.25);}
@@ -617,9 +620,15 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
             </div>
           </div>
 
-          <div class="card">
-            <h2 class="sec">카테고리별 상세</h2>
-            <div class="cat-grid" id="catGrid"></div>
+          <div class="grid-2-even">
+            <div class="card">
+              <h2 class="sec">카테고리별 상세</h2>
+              <div class="cat-grid" id="catGrid"></div>
+            </div>
+            <div class="card">
+              <h2 class="sec">케파 대비 가동률 <span class="hint" id="capHint"></span></h2>
+              <div class="cat-grid" id="capGrid"></div>
+            </div>
           </div>
 
           <div class="card">
@@ -666,7 +675,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
               <button data-c="포재료">포재료</button>
             </div>
           </div>
-          <div class="ctl-group"><input type="text" id="search" class="search-input" placeholder="자재명 · 공급업체 검색"></div>
+          <div class="ctl-group"><input type="text" id="search" class="search-input" placeholder="자재코드 · 자재명 · 공급업체 검색"></div>
           <span class="excluded-note" id="exclNote" style="display:none"></span>
         </div>
 
@@ -729,12 +738,12 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
               <table id="pivot">
                 <thead>
                   <tr class="grp-row">
-                    <th></th>
+                    <th></th><th></th>
                     <th colspan="4" class="grp-month" id="hdrMonth">해당 월</th>
                     <th colspan="4" id="hdrCum">누계</th>
                   </tr>
                   <tr>
-                    <th class="l">자재명 / 공급업체</th>
+                    <th class="l">자재코드</th><th class="l">자재명 / 공급업체</th>
                     <th>입고수량</th><th>입고금액(원화)</th><th>입고단가</th><th>비중</th>
                     <th>입고수량</th><th>입고금액(원화)</th><th>입고단가</th><th>비중</th>
                   </tr>
@@ -1018,6 +1027,28 @@ function syncMbLabels(){
 const PALETTE=['#1F77B4','#FF7F0E','#2CA02C','#D62728','#9467BD','#8C564B','#E377C2','#7F7F7F','#BCBD22','#17BECF'];
 const PC={main:'#1F77B4',ink:'#1B2A4A',muted:'#8A96AB',green:'#2CA02C',amber:'#FF7F0E',red:'#D62728',sky:'#17BECF',t1:'#1F77B4'};
 
+/* 카테고리 정렬 우선순위 — 햄 > 소시지 > 베이컨 > 그 외(가나다순).
+   "라운드햄/사각햄/슬라이스햄"처럼 세분화된 카테고리도 이름에 "햄"이 포함되면 같은 그룹으로 묶여 앞쪽에 옵니다. */
+const CAT_FAMILY_ORDER=['햄','소시지','베이컨'];
+function catFamilyRank(cat){
+  for(let i=0;i<CAT_FAMILY_ORDER.length;i++){ if(cat.indexOf(CAT_FAMILY_ORDER[i])>=0) return i; }
+  return CAT_FAMILY_ORDER.length;
+}
+function catSort(a,b){
+  const ra=catFamilyRank(a), rb=catFamilyRank(b);
+  if(ra!==rb) return ra-rb;
+  return a.localeCompare(b,'ko');
+}
+
+/* 케파 대비 가동률 — 월 케파(톤). 카테고리명에 아래 키워드가 포함되면 해당 그룹으로 집계됩니다
+   (예: 라운드햄/사각햄/슬라이스햄 → 모두 "햄" 그룹). */
+const CAPACITY_TON={'햄':220,'비엔나':175,'프랑크':147,'베이컨':120};
+const CAPACITY_FAMILIES=Object.keys(CAPACITY_TON);
+function capacityFamily(cat){
+  for(const f of CAPACITY_FAMILIES){ if(cat.indexOf(f)>=0) return f; }
+  return null;
+}
+
 const prodState={all:[],view:[],period:'gm',start:null,end:null,cats:[],item:'전체 제품',showAll:false,charts:{}};
 
 const PROD_FIELDS=[
@@ -1095,7 +1126,7 @@ function initProdFilters(){
   pc.querySelectorAll('.chip').forEach(el=>el.onclick=()=>{
     prodState.period=el.dataset.p; syncPeriodChips(); applyPeriod(); renderProd();
   });
-  const cats=[...new Set(prodState.all.map(r=>r.cat))].sort();
+  const cats=[...new Set(prodState.all.map(r=>r.cat))].sort(catSort);
   if(!prodState.cats.length||prodState.cats.some(c=>cats.indexOf(c)<0)) prodState.cats=cats.slice();
   const cc=document.getElementById('catChips');
   cc.innerHTML=cats.map(c=>'<div class="chip cat'+(prodState.cats.indexOf(c)>=0?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+'</div>').join('')
@@ -1178,8 +1209,20 @@ function renderProd(){
   renderPie();
   renderTop();
   renderCatCards();
+  renderCapacityUtil();
   renderProdPivot();
   renderProdDetail();
+}
+/* ---- 케파 대비 가동률 계산 (카테고리 필터와 무관하게 선택 기간 전체 기준) ---- */
+function computeCapacityUtil(rows,start,end){
+  const inR=rows.filter(r=>inRange(r,start,end));
+  const byFam={};
+  inR.forEach(r=>{ const f=capacityFamily(r.cat); if(f) byFam[f]=(byFam[f]||0)+r.qty; });
+  const periodDays=Math.round((end-start)/864e5)+1;
+  const capMonths=periodDays/30.44; // 월평균 일수로 기간을 케파에 비례 배분
+  let actual=0,capacity=0;
+  CAPACITY_FAMILIES.forEach(f=>{ actual+=(byFam[f]||0); capacity+=CAPACITY_TON[f]*1000*capMonths; });
+  return {actual,capacity,pct:capacity>0?actual/capacity*100:null,byFam,capMonths,periodDays};
 }
 function renderProdKpi(){
   const v=prodState.view;
@@ -1192,6 +1235,7 @@ function renderProdKpi(){
   const diff=prevQ>0?(qty-prevQ)/prevQ*100:null;
   const mk=G.year+'-'+String(G.month).padStart(2,'0');
   const gm=sumBy(scopedRows().filter(r=>r.mk===mk),'qty');
+  const capUtil=computeCapacityUtil(prodState.all,prodState.start,prodState.end);
   const cards=[
     {t:'총 생산량',v:fmt(qty),u:'kg',s:diff===null?'직전 기간 데이터 없음':
       '<span class="'+(diff>=0?'up':'down')+'">'+(diff>=0?'▲':'▼')+' '+Math.abs(diff).toFixed(1)+'%</span> 직전 동일기간',c:PC.main},
@@ -1200,6 +1244,9 @@ function renderProdKpi(){
       s:tgt>0?'목표 '+fmt(tgt)+' kg':'목표량 미입력',
       c:tgt>0?(qty/tgt>=0.95?PC.green:(qty/tgt>=0.8?PC.amber:PC.red)):PC.muted},
     {t:G.month+'월 생산량',v:fmt(gm),u:'kg',s:'기준월 ('+G.year+'년 '+G.month+'월)',c:PC.sky},
+    {t:'총 가동률',v:capUtil.pct==null?'—':capUtil.pct.toFixed(1),u:capUtil.pct==null?'':'%',
+      s:'케파 '+fmt(capUtil.capacity)+'kg 대비 · 햄·비엔나·프랑크·베이컨 합산',
+      c:capUtil.pct==null?PC.muted:(capUtil.pct>=90?PC.green:(capUtil.pct>=70?PC.amber:PC.red))},
   ];
   document.getElementById('kpis').innerHTML=cards.map(k=>
     '<div class="kpi" style="border-top-color:'+k.c+'"><div class="t">'+k.t+'</div>'+
@@ -1214,7 +1261,7 @@ function renderCompare(){
   const yoy={y:G.year-1,m:G.month};
   const key=o=>o.y+'-'+String(o.m).padStart(2,'0');
   const kc=key(cur),kp=key(prev),ky=key(yoy);
-  const cats=[...new Set(rows.map(r=>r.cat))].sort();
+  const cats=[...new Set(rows.map(r=>r.cat))].sort(catSort);
   const agg=(mk,cat)=>rows.filter(r=>r.mk===mk&&(!cat||r.cat===cat)).reduce((t,r)=>t+r.qty,0);
   function cell(now,base,variant){
     if(!base){ return '<td class="cmp-dim">-</td><td class="cmp-dim">-</td>'; }
@@ -1226,17 +1273,19 @@ function renderCompare(){
   }
   let html='<thead><tr><th>카테고리</th>'+
     '<th>'+cur.y+'.'+cur.m+'월</th>'+
-    '<th>'+prev.y+'.'+prev.m+'월</th><th>전월 증감</th><th>전월 대비</th>'+
-    '<th>'+yoy.y+'.'+yoy.m+'월</th><th>전년동월 증감</th><th>전년동월 대비</th></tr></thead><tbody>';
+    '<th>'+yoy.y+'.'+yoy.m+'월</th><th>전년동월 증감</th><th>전년동월 대비</th>'+
+    '<th>'+prev.y+'.'+prev.m+'월</th><th>전월 증감</th><th>전월 대비</th></tr></thead><tbody>';
   cats.forEach(c=>{
     const a=agg(kc,c),b=agg(kp,c),y=agg(ky,c);
     html+='<tr><td><span class="badge">'+esc(c)+'</span></td>'+
-      '<td class="cell-strong">'+fmt(a)+'</td><td>'+fmt(b)+'</td>'+cell(a,b,'mom')+
-      '<td>'+fmt(y)+'</td>'+cell(a,y,'yoy')+'</tr>';
+      '<td class="cell-strong">'+fmt(a)+'</td>'+
+      '<td>'+fmt(y)+'</td>'+cell(a,y,'yoy')+
+      '<td>'+fmt(b)+'</td>'+cell(a,b,'mom')+'</tr>';
   });
   const A=agg(kc,null),B=agg(kp,null),Y=agg(ky,null);
-  html+='<tr class="total"><td>합계</td><td>'+fmt(A)+'</td><td>'+fmt(B)+'</td>'+cell(A,B,'mom')+
-    '<td>'+fmt(Y)+'</td>'+cell(A,Y,'yoy')+'</tr></tbody>';
+  html+='<tr class="total"><td>합계</td><td>'+fmt(A)+'</td>'+
+    '<td>'+fmt(Y)+'</td>'+cell(A,Y,'yoy')+
+    '<td>'+fmt(B)+'</td>'+cell(A,B,'mom')+'</tr></tbody>';
   document.getElementById('tblCompare').innerHTML=html;
 }
 
@@ -1254,26 +1303,26 @@ function endBarLabelPlugin(totals,unit){
     id:'endBarLabel',
     afterDatasetsDraw(chart){
       if(!totals.length) return;
-      const idx=totals.length-1;
-      const val=totals[idx];
-      if(!val) return;
       const xScale=chart.scales.x, yScale=chart.scales.y;
       if(!xScale||!yScale) return;
-      const x=xScale.getPixelForValue(idx);
-      const y=yScale.getPixelForValue(val);
       const ctx=chart.ctx;
       ctx.save();
       ctx.textAlign='center';
-      ctx.font="700 11px 'Noto Sans KR',sans-serif";
+      ctx.font="700 10px 'Noto Sans KR',sans-serif";
       ctx.fillStyle=PC.ink;
-      ctx.fillText(fmt(val)+unit,x,Math.max(y-8,12));
+      totals.forEach((val,idx)=>{
+        if(!val) return;
+        const x=xScale.getPixelForValue(idx);
+        const y=yScale.getPixelForValue(val);
+        ctx.fillText(fmt(val)+unit,x,Math.max(y-6,12));
+      });
       ctx.restore();
     }
   };
 }
 function renderTrend(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort();
-  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort();
+  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort(catSort);
   const ds=cats.map((c,i)=>({label:c,
     data:days.map(d=>prodState.view.filter(r=>r.ds===d&&r.cat===c).reduce((t,r)=>t+r.qty,0)),
     backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,stack:'q',order:2}));
@@ -1295,7 +1344,7 @@ function renderTrend(){
 function renderMonthly(){
   const rows=scopedRows();
   const mks=[...new Set(rows.map(r=>r.mk))].sort().slice(-13);
-  const cats=[...new Set(rows.map(r=>r.cat))].sort();
+  const cats=[...new Set(rows.map(r=>r.cat))].sort(catSort);
   const ds=cats.map((c,i)=>({label:c,
     data:mks.map(k=>rows.filter(r=>r.mk===k&&r.cat===c).reduce((t,r)=>t+r.qty,0)),
     backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,stack:'q'}));
@@ -1321,17 +1370,39 @@ function renderPie(){
     ctx.font="500 11px 'Noto Sans KR',sans-serif"; ctx.fillStyle=PC.muted; ctx.fillText('kg',x,y+17);
     ctx.restore();
   }};
+  const sliceLabels={id:'sl',afterDraw(ch){
+    const meta=ch.getDatasetMeta(0);
+    if(!meta||!meta.data||!total) return;
+    const ctx=ch.ctx;
+    ctx.save();
+    ctx.font="700 10px 'Noto Sans KR',sans-serif";
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    meta.data.forEach((arc,i)=>{
+      const val=data[i];
+      if(!val) return;
+      const pct=val/total*100;
+      if(pct<3) return; // 너무 작은 조각은 겹침 방지를 위해 라벨 생략
+      const p=arc.getProps(['startAngle','endAngle','innerRadius','outerRadius','x','y'],true);
+      const mid=(p.startAngle+p.endAngle)/2;
+      const r=(p.innerRadius+p.outerRadius)/2;
+      const x=p.x+Math.cos(mid)*r, y=p.y+Math.sin(mid)*r;
+      const label=pct.toFixed(0)+'%';
+      ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.32)'; ctx.strokeText(label,x,y);
+      ctx.fillStyle='#fff'; ctx.fillText(label,x,y);
+    });
+    ctx.restore();
+  }};
   newChart('chPie',{type:'doughnut',
     data:{labels:cats,datasets:[{data:data,backgroundColor:PALETTE,borderWidth:2,borderColor:'#fff'}]},
     options:Object.assign({},baseOpts,{cutout:'64%',
       plugins:{legend:{position:'bottom',labels:{font:{family:"'Noto Sans KR',sans-serif",size:11},usePointStyle:true,boxWidth:8,padding:13}},
         tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' kg ('+(total?(c.parsed/total*100).toFixed(1):0)+'%)'}}}}),
-    plugins:[center]});
+    plugins:[center,sliceLabels]});
 }
 function renderTop(){
   const map={};
   prodState.view.forEach(r=>{ const k=r.item+'||'+r.cat; map[k]=(map[k]||0)+r.qty; });
-  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort();
+  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort(catSort);
   const arr=Object.keys(map).map(k=>({item:k.split('||')[0],cat:k.split('||')[1],v:map[k]}))
     .sort((a,b)=>b.v-a.v).slice(0,10).reverse();
   newChart('chTop',{type:'bar',
@@ -1362,9 +1433,26 @@ function renderCatCards(){
       '<div class="cat-sub">'+sub+'</div></div>';
   }).join('')||'<p style="color:#8A96AB">표시할 데이터가 없습니다.</p>';
 }
+function renderCapacityUtil(){
+  const capUtil=computeCapacityUtil(prodState.all,prodState.start,prodState.end);
+  const hintEl=document.getElementById('capHint');
+  if(hintEl) hintEl.textContent='— 선택 기간 '+capUtil.periodDays+'일 · 케파 '+capUtil.capMonths.toFixed(2)+'개월치로 비례 배분';
+  document.getElementById('capGrid').innerHTML=CAPACITY_FAMILIES.map(f=>{
+    const actual=capUtil.byFam[f]||0;
+    const cap=CAPACITY_TON[f]*1000*capUtil.capMonths;
+    const pct=cap>0?actual/cap*100:0;
+    const col=pct>=90?PC.green:(pct>=70?PC.amber:PC.red);
+    return '<div class="cat-card" style="border-top-color:'+col+'">'+
+      '<div class="cat-top"><span class="cat-name">'+esc(f)+'</span><span class="cat-qty">'+fmt(actual)+' kg</span></div>'+
+      '<div class="bar-label"><span>케파 대비 가동률</span>'+
+      '<span style="color:'+col+';font-weight:700;">'+pct.toFixed(1)+'%</span></div>'+
+      '<div class="track"><div class="fill" style="width:'+Math.min(pct,100)+'%;background:'+col+'"></div></div>'+
+      '<div class="cat-sub">케파 '+fmt(cap)+'kg ('+CAPACITY_TON[f]+'톤/월 기준)</div></div>';
+  }).join('');
+}
 function renderProdPivot(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort().reverse();
-  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort();
+  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort(catSort);
   let html='<thead><tr><th>일자</th>'+cats.map(c=>'<th>'+esc(c)+'</th>').join('')+'<th>합계</th></tr></thead><tbody>';
   days.forEach(d=>{
     const cells=cats.map(c=>prodState.view.filter(r=>r.ds===d&&r.cat===c).reduce((t,r)=>t+r.qty,0));
@@ -1417,7 +1505,7 @@ let ledSelYear=null, ledMetric='in', ledCls='all';
 function shareCell(part,whole){
   if(!whole||part<=0) return '<span class="share"><span class="pct">-</span><span class="track"><span class="fill" style="width:0"></span></span></span>';
   const pct=part/whole*100;
-  return '<span class="share"><span class="pct">'+pct.toFixed(1)+'%</span><span class="track"><span class="fill" style="width:'+Math.min(100,pct)+'%"></span></span></span>';
+  return '<span class="share"><span class="pct">'+pct.toFixed(1)+'%</span><span class="track"><span class="fill" style="width:'+Math.min(100,pct)+'%;min-width:3px"></span></span></span>';
 }
 
 /* ---------- 파싱: 거래처별 입고 ---------- */
@@ -1556,7 +1644,8 @@ function filteredRows(){
   const q=document.getElementById('search').value.trim().toLowerCase();
   return rcpt.rows.filter(r=>r.year===selYear &&
     (rcptCls==='all'||r.cls===rcptCls) &&
-    (!q||r.mat.toLowerCase().includes(q)||r.supName.toLowerCase().includes(q)||r.supCode.includes(q)));
+    (!q||r.mat.toLowerCase().includes(q)||r.supName.toLowerCase().includes(q)||r.supCode.includes(q)||
+      String(r.matCode||'').toLowerCase().includes(q)));
 }
 function renderReceipts(){
   [...document.getElementById('yearSeg').children].forEach(b=>b.classList.toggle('on',+b.textContent===selYear));
@@ -1572,7 +1661,7 @@ function renderPivotRcpt(){
   const cumRows=filteredRows().filter(r=>r.month<=selMonth);
   const map=new Map();
   cumRows.forEach(r=>{
-    if(!map.has(r.mat)) map.set(r.mat,{cls:r.cls,sups:new Map()});
+    if(!map.has(r.mat)) map.set(r.mat,{cls:r.cls,matCode:r.matCode,sups:new Map()});
     const M=map.get(r.mat);
     const key=r.supCode+'|'+r.supName;
     if(!M.sups.has(key)) M.sups.set(key,{supCode:r.supCode,supName:r.supName,mQty:0,mAmt:0,cQty:0,cAmt:0});
@@ -1588,7 +1677,7 @@ function renderPivotRcpt(){
   const mats=[...map.entries()].map(([mat,M])=>{
     let mQ=0,mA=0,cQ=0,cA=0;
     M.sups.forEach(o=>{ mQ+=o.mQty; mA+=o.mAmt; cQ+=o.cQty; cA+=o.cAmt; });
-    return {mat,cls:M.cls,sups:[...M.sups.values()].sort((a,b)=>b.cAmt-a.cAmt),mQ,mA,cQ,cA};
+    return {mat,cls:M.cls,matCode:M.matCode,sups:[...M.sups.values()].sort((a,b)=>b.cAmt-a.cAmt),mQ,mA,cQ,cA};
   });
   const gmA=mats.reduce((s,m)=>s+m.mA,0), gcA=mats.reduce((s,m)=>s+m.cA,0);
   const gmQ=mats.reduce((s,m)=>s+m.mQ,0), gcQ=mats.reduce((s,m)=>s+m.cQ,0);
@@ -1599,7 +1688,7 @@ function renderPivotRcpt(){
     const sQ=grp.reduce((s,m)=>s+m.mQ,0), sA=grp.reduce((s,m)=>s+m.mA,0);
     const sCQ=grp.reduce((s,m)=>s+m.cQ,0), sCA=grp.reduce((s,m)=>s+m.cA,0);
     const gr=document.createElement('tr'); gr.className='grp';
-    gr.innerHTML='<td class="l">'+esc(cls)+' · '+grp.length+'품목</td>'+
+    gr.innerHTML='<td class="l"></td><td class="l">'+esc(cls)+' · '+grp.length+'품목</td>'+
       '<td class="zone-m">'+fmt(sQ)+'</td><td class="zone-m">'+fmt(sA)+'</td><td class="zone-m">'+unitStr(sA,sQ)+'</td><td class="zone-m">'+shareCell(sA,gmA)+'</td>'+
       '<td>'+fmt(sCQ)+'</td><td>'+fmt(sCA)+'</td><td>'+unitStr(sCA,sCQ)+'</td><td>'+shareCell(sCA,gcA)+'</td>';
     tbody.appendChild(gr);
@@ -1608,7 +1697,8 @@ function renderPivotRcpt(){
       const tr=document.createElement('tr');
       tr.className='mat'+(openMats.has(M.mat)?' open':'');
       tr.dataset.mat=M.mat;
-      tr.innerHTML='<td class="l"><span class="chev">▶</span>'+esc(M.mat)+'<span class="sup-count">'+M.sups.length+'개사</span></td>'+
+      tr.innerHTML='<td class="l code">'+esc(M.matCode||'-')+'</td>'+
+        '<td class="l"><span class="chev">▶</span>'+esc(M.mat)+'<span class="sup-count">'+M.sups.length+'개사</span></td>'+
         '<td class="zone-m">'+fmt(M.mQ)+'</td><td class="zone-m">'+fmt(M.mA)+'</td><td class="zone-m">'+unitStr(M.mA,M.mQ)+'</td><td class="zone-m">'+shareCell(M.mA,sA)+'</td>'+
         '<td>'+fmt(M.cQ)+'</td><td>'+fmt(M.cA)+'</td><td>'+unitStr(M.cA,M.cQ)+'</td><td>'+shareCell(M.cA,sCA)+'</td>';
       tr.onclick=()=>{ if(openMats.has(M.mat)) openMats.delete(M.mat); else openMats.add(M.mat); applyOpen(); };
@@ -1617,7 +1707,7 @@ function renderPivotRcpt(){
         const sr=document.createElement('tr');
         sr.className='sup'+(openMats.has(M.mat)?' show':'');
         sr.dataset.parent=M.mat;
-        sr.innerHTML='<td class="l name">'+esc(o.supName||o.supCode)+(o.supName&&o.supCode?'<span class="code">'+esc(o.supCode)+'</span>':'')+'</td>'+
+        sr.innerHTML='<td class="l"></td><td class="l name">'+esc(o.supName||o.supCode)+(o.supName&&o.supCode?'<span class="code">'+esc(o.supCode)+'</span>':'')+'</td>'+
           '<td class="zone-m">'+fmt(o.mQty)+'</td><td class="zone-m">'+fmt(o.mAmt)+'</td><td class="zone-m">'+unitStr(o.mAmt,o.mQty)+'</td><td class="zone-m">'+shareCell(o.mAmt,M.mA)+'</td>'+
           '<td>'+fmt(o.cQty)+'</td><td>'+fmt(o.cAmt)+'</td><td>'+unitStr(o.cAmt,o.cQty)+'</td><td>'+shareCell(o.cAmt,M.cA)+'</td>';
         tbody.appendChild(sr);
@@ -1626,7 +1716,7 @@ function renderPivotRcpt(){
   });
 
   const gt=document.createElement('tr'); gt.className='grand';
-  gt.innerHTML='<td class="l">총계 · 자재 '+mats.length+'품목</td>'+
+  gt.innerHTML='<td class="l"></td><td class="l">총계 · 자재 '+mats.length+'품목</td>'+
     '<td class="zone-m">'+fmt(gmQ)+'</td><td class="zone-m">'+fmt(gmA)+'</td><td class="zone-m">'+unitStr(gmA,gmQ)+'</td><td class="zone-m">'+shareCell(gmA,gmA)+'</td>'+
     '<td>'+fmt(gcQ)+'</td><td>'+fmt(gcA)+'</td><td>'+unitStr(gcA,gcQ)+'</td><td>'+shareCell(gcA,gcA)+'</td>';
   tbody.appendChild(gt);
@@ -1855,16 +1945,20 @@ function renderLedger(){
   });
   const items=[...map.entries()].map(([mat,o])=>{
     const total=months.reduce((s,m)=>s+(o.mon[m]?o.mon[m].a:0),0);
-    let supRank=Object.entries(o.supQty).sort((a,b)=>b[1]-a[1]);
-    let viaReceipts=false;
-    if(!supRank.length){
-      const codeKey=String(mat||'').trim().replace(/\.0$/,'');
-      let sm=codeIdx.get(codeKey);
-      if(!sm&&receiptIdx.size) sm=lookupReceiptSuppliers(o.desc,receiptIdx);
-      if(sm){ supRank=[...sm.entries()].sort((a,b)=>b[1]-a[1]); viaReceipts=true; }
+    // 거래처별입고(실시간 시트)의 자재코드 매칭을 최우선으로 사용합니다.
+    // 월별수불 시트 자체의 납품업체 칸(o.supQty)은 수기 입력이라 신제품·신규자재가 생겨도
+    // 자동으로 갱신되지 않는 반면, 자재코드 매칭은 거래처별입고 시트를 새로고침할 때마다
+    // 항상 최신 상태로 다시 계산되므로 이걸 우선합니다.
+    let supRank=[], viaReceipts=false, viaOwnCol=false;
+    const codeKey=String(mat||'').trim().replace(/\.0$/,'');
+    let sm=codeIdx.get(codeKey);
+    if(!sm&&receiptIdx.size) sm=lookupReceiptSuppliers(o.desc,receiptIdx);
+    if(sm){ supRank=[...sm.entries()].sort((a,b)=>b[1]-a[1]); viaReceipts=true; }
+    else if(Object.keys(o.supQty).length){
+      supRank=Object.entries(o.supQty).sort((a,b)=>b[1]-a[1]); viaOwnCol=true;
     }
     return {mat,desc:o.desc,cls:o.cls,mon:o.mon,total,
-      mainSup:supRank.length?supRank[0][0]:'',supCount:supRank.length,viaReceipts};
+      mainSup:supRank.length?supRank[0][0]:'',supCount:supRank.length,viaReceipts,viaOwnCol};
   }).filter(it=>months.some(m=>it.mon[m]&&(it.mon[m].q!==0||it.mon[m].a!==0)));
 
   function unitVal(c){ return c&&c.q?c.a/c.q:null; }
@@ -2160,6 +2254,11 @@ function renderSum(){
   '<div class="desc">'+esc(l.p)+' → '+esc(l.c)+' · 원재료비·포재료비만 (가공비 제외) · 월중 검토용 — 마감 전이라 총 금액은 생산량 차이만으로도 달라져 의미가 적어, 단위당(kg·개당) 가격 변동 기준으로 봅니다 · 상세는 좌측 하위 메뉴에서 확인하세요</div></div>'+
   '<div class="sum-grid">'+
     '<div class="sum-kpi-wrap">'+kpiHtml+'</div>'+
+    '<div class="sum-major-products sum-panel">'+
+      '<h3>주요 제품 단위당 원가 비교</h3>'+
+      '<span class="panel-sub">당월 재료비 규모 상위 10개 제품 · 단위당재료비 = 재료비 ÷ 생산량</span>'+
+      majorTable+
+    '</div>'+
     '<div class="sum-cost-change sum-panel">'+
       '<h3>투입자재 단가 변동 상위</h3>'+
       '<span class="panel-sub">자재 × 전월 대비 입고단가 증감률 · 원재료 · 포재료 구분 (상승 '+upCnt+'종 · 하락 '+downCnt+'종 중)</span>'+
@@ -2167,11 +2266,6 @@ function renderSum(){
         '<div class="change-list-col"><h4>원재료</h4>'+priceTable(rawMats)+'</div>'+
         '<div class="change-list-col"><h4>포재료</h4>'+priceTable(packMats)+'</div>'+
       '</div>'+
-    '</div>'+
-    '<div class="sum-major-products sum-panel">'+
-      '<h3>주요 제품 단위당 원가 비교</h3>'+
-      '<span class="panel-sub">당월 재료비 규모 상위 10개 제품 · 단위당재료비 = 재료비 ÷ 생산량</span>'+
-      majorTable+
     '</div>'+
   '</div>'+
   '<div class="hint">단가 % — 두 달 모두 투입(생산)이 있을 때만 표시. 총액이 아닌 단위당 가격 기준이라 생산량 변동과 무관하게 실제 가격 변화만 보여줍니다.</div>';
@@ -2243,7 +2337,6 @@ function renderProdMb(){
     return '<tr class="exp" onclick="togg('+r.prod+')">'+
       '<td class="l">'+(open?'▾':'▸')+' <span style="font-size:.66rem;color:var(--sub)">'+r.prod+'</span></td>'+
       '<td class="l"><strong>'+esc(r.name)+'</strong></td>'+
-      '<td>'+mfmt(r.a4)+'</td><td>'+mfmt(r.a5)+'</td><td class="'+mcls(r.inc)+'">'+mfmt(r.inc)+'</td>'+
       '<td class="dim">'+mfmt(r.g4)+'</td><td class="dim">'+mfmt(r.g5)+'</td>'+
       '<td class="dim">'+(r.u4==null?'–':mfmt(r.u4,1))+'</td><td class="dim">'+(r.u5==null?'–':mfmt(r.u5,1))+'</td>'+
       '<td class="'+mcls(r.upct)+'">'+fmtP(r.upct)+'</td>'+
@@ -2251,18 +2344,16 @@ function renderProdMb(){
   }).join('');
   $('#sec-prod').innerHTML=
   '<div class="page-head"><div class="eyebrow">Product</div><h2>제품별 재료비</h2>'+
-  '<div class="desc">생산량 0인 달이 있으면 단위당 증감% 는 "–" · 행 클릭 → 자재 상세</div></div>'+
+  '<div class="desc">단위당재료비 = 재료비 ÷ 생산량 · 생산량 0인 달이 있으면 단위당 증감% 는 "–" · 열 제목 클릭 시 정렬(다시 클릭하면 반대 방향) · 행 클릭 → 자재 상세</div></div>'+
   '<div class="tbar">'+
     '<input type="search" id="prodQ" placeholder="제품코드·제품명 검색" value="'+esc(q)+'" oninput="mbRender(\'prod\')">'+
     '<div class="cnt">'+rows.length+'개 제품</div></div>'+
   '<div class="twrap"><table><thead><tr>'+
     sortBtn('prod','prod','코드',1)+sortBtn('prod','name','제품명',1)+
-    sortBtn('prod','a4',esc(l.p)+' 재료비')+sortBtn('prod','a5',esc(l.c)+' 재료비')+
-    sortBtn('prod','inc','증감액')+
     sortBtn('prod','g4',esc(l.p)+' 생산량')+sortBtn('prod','g5',esc(l.c)+' 생산량')+
     sortBtn('prod','u4',esc(l.p)+' 단위당')+sortBtn('prod','u5',esc(l.c)+' 단위당')+
     sortBtn('prod','upct','단위당 증감%')+'<th>판정</th>'+
-  '</tr></thead><tbody>'+(tr||'<tr><td colspan="11" class="empty">결과 없음</td></tr>')+'</tbody></table></div>'+
+  '</tr></thead><tbody>'+(tr||'<tr><td colspan="8" class="empty">결과 없음</td></tr>')+'</tbody></table></div>'+
   '<div class="hint">단위당 증감% — 두 달 모두 생산량 &gt; 0일 때만 표시. 원단위 = 투입량 ÷ 생산량.</div>';
 }
 window.togg=p=>{ MBS.open.has(p)?MBS.open.delete(p):MBS.open.add(p); mbRender('prod'); };
