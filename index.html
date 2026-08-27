@@ -334,6 +334,51 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt .pct.down{color:var(--down);font-weight:700;}
 .pg-rcpt .pct.zero{color:#c3c9cf;}
 
+/* ================= 수입원료육 입고계획 ================= */
+.pg-plan{--pl-navy:#1B3A5C;--pl-navy2:#254E77;--pl-band:#EAF1F8;--pl-line:#DCE4EE;
+  --pl-ink:#16233A;--pl-sub:#6B7A90;--pl-plan:#F3F8FC;--pl-accent:#2E6BA8;}
+.pg-plan .plan-wrap{padding:24px 28px 46px;max-width:1620px;margin:0 auto;}
+.pg-plan .plan-head h1{font-size:1.3rem;font-weight:800;color:var(--pl-ink);letter-spacing:-.02em;}
+.pg-plan .plan-head .meta{font-size:.78rem;color:var(--pl-sub);margin-top:4px;}
+.pg-plan .plan-tabs{display:flex;gap:7px;margin:18px 0 4px;flex-wrap:wrap;}
+.pg-plan .plan-tabs button{border:1px solid var(--pl-line);background:#fff;color:var(--pl-sub);
+  padding:8px 20px;border-radius:8px;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;}
+.pg-plan .plan-tabs button.on{background:var(--pl-navy);border-color:var(--pl-navy);color:#fff;}
+.pg-plan .plan-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0 20px;}
+.pg-plan .pk{background:#fff;border:1px solid var(--pl-line);border-radius:10px;padding:14px 16px;}
+.pg-plan .pk .lb{font-size:.7rem;font-weight:700;color:var(--pl-sub);}
+.pg-plan .pk .v{font-size:1.3rem;font-weight:800;color:var(--pl-ink);margin-top:5px;font-variant-numeric:tabular-nums;}
+.pg-plan .pk .v small{font-size:.72rem;font-weight:700;color:var(--pl-sub);margin-left:3px;}
+.pg-plan .pk .d{font-size:.7rem;color:var(--pl-sub);margin-top:3px;}
+.pg-plan .yr-card{background:#fff;border:1px solid var(--pl-line);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.pg-plan .yr-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 18px;background:var(--pl-navy);color:#fff;}
+.pg-plan .yr-top .y{font-size:.98rem;font-weight:800;}
+.pg-plan .yr-top .u{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600;}
+.pg-plan .yr-scroll{overflow-x:auto;}
+.pg-plan table{border-collapse:collapse;width:100%;font-size:.79rem;font-variant-numeric:tabular-nums;}
+.pg-plan thead th{background:var(--pl-navy2);color:rgba(255,255,255,.93);font-weight:700;font-size:.72rem;
+  padding:9px 11px;text-align:center;white-space:nowrap;}
+.pg-plan thead th.l{text-align:left;}
+.pg-plan thead th.sum{background:#1D4066;}
+.pg-plan tbody td{padding:9px 11px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--pl-line);color:var(--pl-ink);}
+.pg-plan tbody td.l{text-align:left;font-weight:700;background:#F6F9FC;border-right:1px solid var(--pl-line);}
+.pg-plan tbody td.plan{background:var(--pl-plan);}
+.pg-plan tbody td.sum{background:var(--pl-band);font-weight:700;}
+.pg-plan tbody tr.grp-end td{border-bottom:1.5px solid #C6D2E1;}
+.pg-plan tbody tr.prod td{color:var(--pl-sub);font-weight:600;background:#FAFBFD;}
+.pg-plan tbody tr.end td{font-weight:700;}
+.pg-plan tbody tr.hl td:not(.l){background:#EAF4FB;}
+.pg-plan tbody tr.hl td.plan{background:#DFEDF7;}
+.pg-plan .qv{display:block;font-weight:700;}
+.pg-plan .pv{display:block;font-size:.71rem;color:var(--pl-sub);font-weight:600;margin-top:2px;}
+.pg-plan .rot{color:var(--pl-accent);font-weight:700;}
+.pg-plan .dash{color:#C4CCD8;}
+.pg-plan .plan-note{font-size:.72rem;color:var(--pl-sub);margin-top:-6px;margin-bottom:16px;}
+.pg-plan .need-data{background:#fff;border:1px dashed var(--pl-line);border-radius:11px;padding:34px 22px;
+  text-align:center;color:var(--pl-sub);font-size:.85rem;display:flex;flex-direction:column;gap:6px;margin-top:18px;}
+.pg-plan .need-data strong{color:var(--pl-ink);font-size:.92rem;}
+@media(max-width:1100px){.pg-plan .plan-kpis{grid-template-columns:repeat(2,1fr);}}
+
 /* ================= MB5B 재료비 (원본 스코프) ================= */
 .pg-mb{--bg:#F4F6F9;--card:#FFFFFF;--navy:#1A2E45;--navy2:#243B55;
   --ink:#1A2230;--sub:#64748B;--line:#E2E8F0;
@@ -534,6 +579,9 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="insight">인사이트</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">피벗 상세</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
+      <div class="sb-item sb-sub" data-page="plan" data-ptab=""><span class="ic">🚢</span>수입원료육 입고계획</div>
+      <div class="sb-item sb-sub2" data-page="plan" data-ptab="수입전지">수입전지</div>
+      <div class="sb-item sb-sub2" data-page="plan" data-ptab="수입지방">수입지방</div>
       <div class="sb-group">원가관리</div>
       <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>단위당 원가비교</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="prod">제품별</div>
@@ -793,6 +841,23 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       </div>
     </div>
 
+    <!-- ========== 수입원료육 입고계획 ========== -->
+    <div class="page pg-plan" id="page-plan">
+      <div class="plan-wrap">
+        <div class="plan-head">
+          <h1>수입원료육 입고계획</h1>
+          <div class="meta" id="planMeta">구글 시트를 읽는 중…</div>
+        </div>
+        <div class="plan-tabs" id="planTabs"></div>
+        <div class="need-data" id="nd-plan" style="display:none"><strong>입고계획 시트를 읽지 못했습니다</strong><span id="ndPlanMsg"></span></div>
+        <div id="planBody" style="display:none">
+          <div class="plan-kpis" id="planKpis"></div>
+          <div id="planYears"></div>
+          <div class="plan-note">진한 배경은 기준월 이후(계획) 월 · 물량 단위 톤 · 단가 원/kg · 기초·누적·기말재고는 재고 지표라 합계 없이 연말 값을 표시합니다.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- ========== MB5B 재료비 (원본 구조 유지) ========== -->
     <div class="page pg-mb" id="page-mb">
       <div class="mbwrap">
@@ -836,6 +901,7 @@ const SHEET_ID = '1FWnkrFd_QxzkNh8OTTYY2ow5SU5K2iMiq2c8pZh4dIk';
 const SHEETS = {
   production: '생산실적',
   receipts  : '거래처별입고내역',
+  importPlan: '입고계획',
   ledger    : '월별수불',
   mb5b      : 'mb5b',
   costPrev  : '원가분석 전월',
@@ -985,6 +1051,7 @@ document.querySelectorAll('.sb-item[data-page]').forEach(b=>{
     if(curPage==='prod' && prodState.all.length) renderProd();
     if(curPage==='rcpt' && b.dataset.rtab) activateTab(b.dataset.rtab);
     if(curPage==='mb' && b.dataset.mtab) mbActivateTab(b.dataset.mtab);
+    if(curPage==='plan' && importPlan.items.length) planActivate(b.dataset.ptab||null);
   };
 });
 function setStatus(kind,text){
@@ -1060,10 +1127,11 @@ const prodState={all:[],view:[],period:'gm',start:null,end:null,cats:[],item:'�
 
 const PROD_FIELDS=[
   {key:'date',  exact:['일자','날짜','전기일'], has:['일자','날짜','생산일','전기일','작업일','date'], req:true},
-  {key:'cat',   exact:['카테고리','대분류','MRP 관리자'], has:['카테고리','대분류','제품군','품목군','구분','분류','관리자','mrp']},
-  {key:'item',  exact:['제품명','품목명','내역'], has:['제품명','품목','품명','자재내역','자재명','내역','제품']},
+  {key:'cat',   exact:['카테고리','대분류','MRP 관리자','라인구분2'], has:['카테고리','대분류','제품군','품목군','구분','분류','관리자','mrp']},
+  {key:'item',  exact:['제품명','품목명','내역','자재명'], has:['제품명','품목','품명','자재내역','자재명','내역','제품']},
   {key:'qty',   exact:['생산량','생산수량'], has:['생산량','생산수량','실적수량','생산실적','생산'], req:true},
   {key:'target',exact:['목표량','계획량'], has:['목표','계획']},
+  {key:'code',  exact:['자재코드','품목코드'], has:['자재코드','품목코드','코드']},
   {key:'memo',  exact:['비고'], has:['비고','메모']},
 ];
 function mapHeader(header,fields){
@@ -1116,6 +1184,7 @@ function parseProduction(matrix){
     rows.push({date:d,ds:ymd(d),mk:mKey(d),
       cat:(String(get(r,'cat')||'').trim()||'미분류'),
       item:(String(get(r,'item')||'').trim()||'미지정'),
+      code:normCode(get(r,'code')),
       qty,target,memo:String(get(r,'memo')||'').trim()});
   }
   if(!rows.length) throw new Error('읽을 수 있는 생산 데이터 행이 없습니다');
@@ -1575,29 +1644,41 @@ function renderPlanRank(){
   // 같은 핵심 제품명(예: "200g"/"300g"처럼 포장 단위만 다른 자재들)은 생산실적에서
   // 한 카테고리로만 잡히는 경우가 많아, 실제 생산량을 그 그룹의 목표 비중대로 나눠 배분합니다.
   // (그대로 각자 전체 실적을 대입하면 한 SKU가 여러 배로 부풀려 집계되는 문제가 생깁니다.)
-  const coreActualCache=new Map();
-  function actualForCore(coreKey){
-    if(coreActualCache.has(coreKey)) return coreActualCache.get(coreKey);
-    const v=coreKey?inView.filter(r=>{
-      const rk=coreProductKey(r.item);
-      if(!rk) return false;
-      if(rk===coreKey) return true;
-      return coreKey.length>=3 && (rk.includes(coreKey)||coreKey.includes(rk));
-    }).reduce((s,r)=>s+r.qty,0):0;
-    coreActualCache.set(coreKey,v);
-    return v;
-  }
-  const byCore=new Map();
-  items.forEach(it=>{ if(!byCore.has(it.coreKey)) byCore.set(it.coreKey,[]); byCore.get(it.coreKey).push(it); });
   const result=[];
-  byCore.forEach((group,coreKey)=>{
-    const totalActual=actualForCore(coreKey);
-    const totalTarget=group.reduce((s,it)=>s+it.target,0);
-    group.forEach(it=>{
-      const actual=totalTarget>0?totalActual*(it.target/totalTarget):0;
+  const hasCode=inView.some(r=>r.code);
+  if(hasCode){
+    // 생산실적에 자재코드가 있으면 이름매칭 없이 자재코드로만 정확히 매칭합니다
+    // (이름 부분일치는 서로 다른 자재를 뒤섞을 위험이 있어 코드가 있으면 쓰지 않습니다).
+    const byMatCode=new Map();
+    inView.forEach(r=>{ if(!r.code) return; byMatCode.set(r.code,(byMatCode.get(r.code)||0)+r.qty); });
+    items.forEach(it=>{
+      const actual=it.matCode?(byMatCode.get(it.matCode)||0):0;
       result.push({name:it.name,matCode:it.matCode,target:it.target,actual,pct:it.target>0?actual/it.target*100:null});
     });
-  });
+  }else{
+    // 생산실적에 자재코드가 없을 때만 제품명 기반 매칭으로 대체합니다.
+    // 생산실적 각 행은 가장 잘 맞는 핵심 제품명(coreKey) 단 하나에만 배분해
+    // 서로 다른 목표 그룹이 같은 실적 행을 중복 집계하지 않게 합니다.
+    const byCore=new Map();
+    items.forEach(it=>{ if(!byCore.has(it.coreKey)) byCore.set(it.coreKey,[]); byCore.get(it.coreKey).push(it); });
+    const coreKeys=[...byCore.keys()].filter(Boolean);
+    const actualByCore=new Map(coreKeys.map(k=>[k,0]));
+    // 부분일치(substring)는 서로 다른 제품을 뒤섞어 실적을 왜곡시키므로 제거하고
+    // 핵심 제품명이 완전히 같을 때만 매칭합니다(코드가 없을 때의 최선책).
+    inView.forEach(r=>{
+      const rk=coreProductKey(r.item);
+      if(!rk || !actualByCore.has(rk)) return;
+      actualByCore.set(rk, actualByCore.get(rk)+r.qty);
+    });
+    byCore.forEach((group,coreKey)=>{
+      const totalActual=actualByCore.get(coreKey)||0;
+      const totalTarget=group.reduce((s,it)=>s+it.target,0);
+      group.forEach(it=>{
+        const actual=totalTarget>0?totalActual*(it.target/totalTarget):0;
+        result.push({name:it.name,matCode:it.matCode,target:it.target,actual,pct:it.target>0?actual/it.target*100:null});
+      });
+    });
+  }
   const valid=result.filter(r=>r.pct!=null);
   if(!valid.length){ el.innerHTML='<tbody><tr><td style="padding:14px;color:#8A96AB;text-align:left;">비교 가능한 제품이 없습니다. 생산실적의 제품명과 월별목표량의 자재명이 서로 매칭되는지 확인해주세요.</td></tr></tbody>'; return; }
   const sorted=valid.slice().sort((a,b)=>b.pct-a.pct);
@@ -1636,6 +1717,7 @@ function renderProdPivot(){
 const rcpt={rows:[],excl:0};
 const led ={rows:[]};
 const planT={rows:[]};
+const importPlan={items:[],cur:null};
 let selYear=null, selMonth=null, openMats=new Set(), rcptCls='all';
 let firstLoad=true;
 let ledSelYear=null, ledMetric='in', ledCls='all';
@@ -1755,6 +1837,154 @@ function parsePlanTarget(matrix){
   }
   if(!out.length) throw new Error('유효한 목표 데이터가 없습니다 (월별 목표 컬럼 값이 모두 비어있는지 확인해주세요)');
   return out;
+}
+
+/* ---------- 파싱: 수입원료육 입고계획 ----------
+   품목 블록이 위아래로 반복됩니다(수입전지 A1~, 수입지방 A11~ …). 월 헤더 행("26년 1월" 등)은
+   맨 위에 한 번만 있고 아래 블록은 그 정의를 상속합니다. 지표 라벨(생산량·회전월)은 A열,
+   나머지(기초 재고·입고·누적재고·사용·기말 재고)는 B열에 있어 두 열 모두에서 인식합니다.
+   품목명은 "지표 집합에도 없고 '구분'도 아닌 A열 값"으로 판단합니다. */
+const IP_METRICS=['생산량','기초재고','입고','누적재고','사용','기말재고','회전월'];
+function parseImportPlan(matrix){
+  if(!matrix.length) throw new Error('입고계획 시트가 비어 있습니다');
+  const MONTH_RE=/(\d{2,4})\s*년\s*(\d{1,2})\s*월/;
+  const norm=v=>String(v==null?'':v).trim().replace(/\s+/g,'');
+  let monthCols=null, priceCol=-1;
+  const items=[]; let cur=null, pendingProd=null;
+  const mkItem=name=>{
+    const it={name:name,planPrice:null,months:monthCols.map(mc=>({y:mc.y,m:mc.m})),rows:{},prod:pendingProd};
+    items.push(it); pendingProd=null; return it;
+  };
+  matrix.forEach(row=>{
+    if(!row) return;
+    const cells=row.map(c=>String(c==null?'':c).trim());
+    const hits=[];
+    cells.forEach((c,ci)=>{
+      const m=c.match(MONTH_RE);
+      if(!m) return;
+      let y=+m[1]; if(y<100) y+=2000;
+      const mo=+m[2]; if(mo>=1&&mo<=12) hits.push({ci,y,m:mo});
+    });
+    if(hits.length>=2){
+      monthCols=hits;
+      const pc=cells.findIndex(c=>c.replace(/\s/g,'')==='경영계획단가');
+      if(pc>=0) priceCol=pc;
+      return;
+    }
+    if(!monthCols) return;
+    const a=norm(cells[0]), b=norm(cells[1]);
+    const aIsMetric=IP_METRICS.indexOf(a)>=0;
+    const metric=aIsMetric?a:(IP_METRICS.indexOf(b)>=0?b:null);
+    const nameCell=(!aIsMetric && a && a!=='구분')?cells[0].trim():null;
+    if(!metric){ if(nameCell) cur=mkItem(nameCell); return; }
+    if(metric==='생산량'){
+      const prod=monthCols.map(mc=>({y:mc.y,m:mc.m,qty:toNum(row[mc.ci])}));
+      if(cur && !cur.prod) cur.prod=prod; else pendingProd=prod;
+      return;
+    }
+    if(nameCell) cur=mkItem(nameCell);
+    if(!cur) cur=mkItem('품목 '+(items.length+1));
+    if(priceCol>=0){ const p=toNum(row[priceCol]); if(p) cur.planPrice=p; }
+    if(metric==='회전월') cur.rows['회전월']=monthCols.map(mc=>({y:mc.y,m:mc.m,v:toNum(row[mc.ci])}));
+    else cur.rows[metric]=monthCols.map(mc=>({y:mc.y,m:mc.m,qty:toNum(row[mc.ci]),price:toNum(row[mc.ci+1])}));
+  });
+  const out=items.filter(it=>Object.keys(it.rows).length);
+  if(!out.length) throw new Error('품목 블록을 찾지 못했습니다 (A열 품목명·지표 라벨을 확인해주세요)');
+  return {items:out};
+}
+/* 입고계획 렌더 — 품목 탭 × 연도별 카드. 행: 생산량 / 기초재고 / 입고(물량·평균단가) /
+   누적재고 / 사용 / 기말재고(물량·회전월·평균단가). 합계는 흐름 지표(생산량·입고·사용)만. */
+function planActivate(name){
+  if(name) importPlan.cur=name;
+  renderImportPlan();
+}
+function renderImportPlan(){
+  const nd=document.getElementById('nd-plan'), body=document.getElementById('planBody');
+  const tabs=document.getElementById('planTabs');
+  if(!importPlan.items.length){ body.style.display='none'; nd.style.display='flex'; tabs.innerHTML=''; return; }
+  nd.style.display='none'; body.style.display='block';
+  if(!importPlan.items.some(i=>i.name===importPlan.cur)) importPlan.cur=importPlan.items[0].name;
+  const it=importPlan.items.find(i=>i.name===importPlan.cur);
+  tabs.innerHTML=importPlan.items.map(i=>
+    '<button data-p="'+esc(i.name)+'"'+(i.name===it.name?' class="on"':'')+'>'+esc(i.name)+'</button>').join('');
+  [...tabs.children].forEach(b=>{ b.onclick=()=>planActivate(b.dataset.p); });
+
+  const get=(metric,y,m)=>{ const a=it.rows[metric]||[]; return a.find(s=>s.y===y&&s.m===m)||null; };
+  const rot=(y,m)=>{ const a=it.rows['회전월']||[]; const s=a.find(x=>x.y===y&&x.m===m); return s?s.v:null; };
+  const prodOf=(y,m)=>{ const s=(it.prod||[]).find(x=>x.y===y&&x.m===m); return s?s.qty:null; };
+  const num=(v,cls)=>v==null?'<span class="dash">-</span>':'<span'+(cls?' class="'+cls+'"':'')+'>'+fmt(v)+'</span>';
+  const isPlanMonth=(y,m)=>(y>G.year)||(y===G.year&&m>G.month);
+  const yCount={}; it.months.forEach(mo=>{ yCount[mo.y]=(yCount[mo.y]||0)+1; });
+  const years=[...new Set(it.months.map(mo=>mo.y))].sort((a,b)=>(yCount[b]-yCount[a])||(b-a));
+
+  document.getElementById('planYears').innerHTML=years.map(y=>{
+    const ms=it.months.filter(mo=>mo.y===y).sort((a,b)=>a.m-b.m);
+    const cls=mo=>isPlanMonth(mo.y,mo.m)?' class="plan"':'';
+    const head='<thead><tr><th class="l" colspan="2" style="min-width:150px">구분</th>'+
+      ms.map(mo=>'<th>'+mo.m+'월</th>').join('')+'<th class="sum">합계</th></tr></thead>';
+    const flowSum=arr=>arr.reduce((s,v)=>s+(v||0),0);
+    const wAvg=(metric)=>{
+      let q=0,a=0;
+      ms.forEach(mo=>{ const s=get(metric,mo.y,mo.m); if(s&&s.qty&&s.price){ q+=s.qty; a+=s.qty*s.price; } });
+      return q?Math.round(a/q):null;
+    };
+    const rowStart=(label,span)=>'<td class="l" rowspan="'+span+'">'+label+'</td>';
+    let tb='<tbody>';
+    // 생산량
+    tb+='<tr class="prod grp-end">'+rowStart('생산량',1)+'<td class="sub-l">물량</td>'+
+      ms.map(mo=>'<td'+cls(mo)+'>'+num(prodOf(mo.y,mo.m))+'</td>').join('')+
+      '<td class="sum">'+num(flowSum(ms.map(mo=>prodOf(mo.y,mo.m))))+'</td></tr>';
+    // 기초재고
+    const openLast=get('기초재고',ms[0].y,ms[0].m);
+    tb+='<tr>'+rowStart('기초재고',1)+'<td class="sub-l">물량</td>'+
+      ms.map(mo=>{ const s=get('기초재고',mo.y,mo.m); return '<td'+cls(mo)+'>'+num(s?s.qty:null)+'</td>'; }).join('')+
+      '<td class="sum">'+num(openLast?openLast.qty:null)+'</td></tr>';
+    // 입고 (물량 + 평균단가)
+    tb+='<tr>'+rowStart('입고',2)+'<td class="sub-l">물량</td>'+
+      ms.map(mo=>{ const s=get('입고',mo.y,mo.m); return '<td'+cls(mo)+'>'+num(s?s.qty:null)+'</td>'; }).join('')+
+      '<td class="sum">'+num(flowSum(ms.map(mo=>{ const s=get('입고',mo.y,mo.m); return s?s.qty:0; })))+'</td></tr>';
+    tb+='<tr class="grp-end"><td class="sub-l">평균단가</td>'+
+      ms.map(mo=>{ const s=get('입고',mo.y,mo.m); return '<td class="price'+(isPlanMonth(mo.y,mo.m)?' plan':'')+'">'+num(s&&s.price?s.price:null)+'</td>'; }).join('')+
+      '<td class="sum">'+num(wAvg('입고'))+'</td></tr>';
+    // 누적재고
+    tb+='<tr>'+rowStart('누적재고',1)+'<td class="sub-l">물량</td>'+
+      ms.map(mo=>{ const s=get('누적재고',mo.y,mo.m); return '<td'+cls(mo)+'>'+num(s?s.qty:null)+'</td>'; }).join('')+
+      '<td class="sum"><span class="dash">-</span></td></tr>';
+    // 사용
+    tb+='<tr class="grp-end">'+rowStart('사용',1)+'<td class="sub-l">물량</td>'+
+      ms.map(mo=>{ const s=get('사용',mo.y,mo.m); return '<td'+cls(mo)+'>'+num(s?s.qty:null)+'</td>'; }).join('')+
+      '<td class="sum">'+num(flowSum(ms.map(mo=>{ const s=get('사용',mo.y,mo.m); return s?s.qty:0; })))+'</td></tr>';
+    // 기말재고 (물량 / 회전월 / 평균단가)
+    const endLast=get('기말재고',ms[ms.length-1].y,ms[ms.length-1].m);
+    tb+='<tr class="end">'+rowStart('기말재고',3)+'<td class="sub-l">물량</td>'+
+      ms.map(mo=>{ const s=get('기말재고',mo.y,mo.m); return '<td'+cls(mo)+'>'+num(s?s.qty:null)+'</td>'; }).join('')+
+      '<td class="sum">'+num(endLast?endLast.qty:null)+'</td></tr>';
+    const rots=ms.map(mo=>rot(mo.y,mo.m)).filter(v=>v!=null&&v>0);
+    tb+='<tr><td class="sub-l">회전월</td>'+
+      ms.map(mo=>{ const v=rot(mo.y,mo.m); return '<td class="rot'+(isPlanMonth(mo.y,mo.m)?' plan':'')+'">'+(v?fmtD(v,1):'<span class="dash">-</span>')+'</td>'; }).join('')+
+      '<td class="sum">'+(rots.length?fmtD(rots.reduce((a,b)=>a+b,0)/rots.length,1):'<span class="dash">-</span>')+'</td></tr>';
+    tb+='<tr><td class="sub-l">평균단가</td>'+
+      ms.map(mo=>{ const s=get('기말재고',mo.y,mo.m); return '<td class="price'+(isPlanMonth(mo.y,mo.m)?' plan':'')+'">'+num(s&&s.price?s.price:null)+'</td>'; }).join('')+
+      '<td class="sum">'+num(wAvg('기말재고'))+'</td></tr>';
+    tb+='</tbody>';
+    return '<div class="yr-card"><div class="yr-top"><span class="y">'+y+'년</span>'+
+      '<span class="u">단위: 물량 톤 · 단가 원/kg'+(it.planPrice?' · 경영계획 단가 '+fmt(it.planPrice)+'원':'')+'</span></div>'+
+      '<div class="yr-scroll"><table>'+head+tb+'</table></div></div>';
+  }).join('');
+
+  // KPI — 월 수가 가장 많은 본 계획 연도 기준(부분 연도 제외)
+  const ky=years[0];
+  const kms=it.months.filter(mo=>mo.y===ky).sort((a,b)=>a.m-b.m);
+  const sum=(metric)=>kms.reduce((s,mo)=>{ const x=get(metric,mo.y,mo.m); return s+(x?x.qty:0); },0);
+  const endK=get('기말재고',kms[kms.length-1].y,kms[kms.length-1].m);
+  const rotsK=kms.map(mo=>rot(mo.y,mo.m)).filter(v=>v!=null&&v>0);
+  const kpi=(lb,v,u,d)=>'<div class="pk"><div class="lb">'+lb+'</div><div class="v">'+v+(u?'<small>'+u+'</small>':'')+'</div><div class="d">'+d+'</div></div>';
+  document.getElementById('planKpis').innerHTML=
+    kpi(ky+'년 입고 계획',fmt(sum('입고')),'톤','월별 입고 물량 합계')+
+    kpi(ky+'년 사용 계획',fmt(sum('사용')),'톤','생산 투입 물량 합계')+
+    kpi('연말 기말재고',endK?fmt(endK.qty):'—','톤',endK&&endK.price?'평균단가 '+fmt(endK.price)+'원/kg':'—')+
+    kpi('평균 회전월',rotsK.length?fmtD(rotsK.reduce((a,b)=>a+b,0)/rotsK.length,1):'—','개월',rotsK.length?'회전월 있는 달 평균':'데이터 없음');
+  document.getElementById('planMeta').textContent='품목 '+importPlan.items.length+'개 · '+it.name+' · 구글 시트 연결됨';
 }
 
 /* ---------- 탭 ---------- */
@@ -2706,6 +2936,17 @@ async function loadAll(){
   }catch(e){
     planT.rows=[];
     console.warn('월별목표량 로드 실패:', e.message);
+  }
+  // --- 수입원료육 입고계획 ---
+  try{
+    if(!results.importPlan.ok) throw new Error(results.importPlan.err);
+    const ip=parseImportPlan(results.importPlan.matrix);
+    importPlan.items=ip.items;
+    renderImportPlan();
+  }catch(e){
+    importPlan.items=[];
+    document.getElementById('nd-plan').style.display='flex';
+    document.getElementById('ndPlanMsg').textContent=SHEETS.importPlan+' — '+e.message;
   }
 
   // --- 전역 기준월 옵션 ---
