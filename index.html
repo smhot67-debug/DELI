@@ -1265,7 +1265,7 @@ function planTargetForPeriod(rows,overlaps,line2Filter){
       if(line2Filter && r.line2!==line2Filter) return;
       monthSum+=r.target;
     });
-    total+=monthSum*1000*frac; // 톤→kg
+    total+=monthSum*frac; // 시트 값이 이미 kg 단위 (자재별 개별 목표라 톤 환산 안 함)
   });
   return total;
 }
@@ -1630,38 +1630,40 @@ function parseLedger(raw){
 }
 
 /* ---------- 파싱: 월별목표량 (경영계획, 자재코드→라인구분2로 집계) ---------- */
-function parsePlanTarget(raw){
-  if(!raw.length) throw new Error('월별목표량 시트가 비어 있습니다');
-  const s=raw[0];
-  const keys=Object.keys(s);
-  const K={
-    gubun:findKey(s,['구분월','년월','연월']),
-    year:findKey(s,['연도','년도']),
-    month:findKey(s,['월']),
-    line2:findKey(s,['라인구분2','라인구분']),
-    target:findKey(s,['목표수량','목표생산량','목표량','계획수량','계획량']),
-  };
-  K.matCode=keys.find(k=>String(k).replace(/\s/g,'')==='자재')||findKey(s,['자재코드','자재번호','자재']);
-  if(!K.target) throw new Error('필수 컬럼(목표수량/목표생산량/목표량 중 하나)을 찾지 못했습니다');
-  if(!K.gubun && !(K.year&&K.month)) throw new Error('필수 컬럼(구분월 또는 연도+월)을 찾지 못했습니다');
-  const out=[];
-  raw.forEach(r=>{
-    let y=null,m=null;
-    if(K.gubun&&r[K.gubun]!=null){ const ym=gubunYm(r[K.gubun]); if(ym){ y=ym.y; m=ym.m; } }
-    if((y==null||m==null)&&K.year&&K.month){
-      const yy=parseInt(String(r[K.year]).replace(/[^0-9]/g,''));
-      const mm=parseInt(String(r[K.month]).replace(/[^0-9]/g,''));
-      if(yy>1900&&mm>=1&&mm<=12){ y=yy; m=mm; }
-    }
-    if(y==null||m==null) return;
-    const target=toNum(r[K.target]);
-    if(!target) return;
-    out.push({y,m,
-      matCode:K.matCode?String(r[K.matCode]||'').trim().replace(/\.0$/,''):'',
-      line2:K.line2?(String(r[K.line2]||'').trim()||'미분류'):'미분류',
-      target}); // 톤 단위로 보관 — 사용하는 곳에서 kg으로 환산
+/* 실제 시트는 "가로형(wide)" — 한 행 = 자재 1개, 열은 라인구분/라인구분2/자재코드/자재명 뒤에
+   "202601월","202602월"... 처럼 월별 목표수량이 한 열씩 이어지는 구조입니다.
+   이 함수는 그 월별 열들을 세로(연,월,자재코드,라인구분2,목표) 레코드로 풀어냅니다.
+   목표수량은 시트에 표기된 값(개별 자재 단위라 kg으로 봄) 그대로 사용합니다. */
+function parsePlanTarget(matrix){
+  if(!matrix.length) throw new Error('월별목표량 시트가 비어 있습니다');
+  const header=matrix[0].map(h=>String(h==null?'':h).trim());
+  const findCol=(name)=>header.findIndex(h=>h.replace(/\s/g,'')===name);
+  const line1Ix=findCol('라인구분');
+  const line2Ix=findCol('라인구분2');
+  let matCodeIx=findCol('자재코드'); if(matCodeIx<0) matCodeIx=findCol('자재');
+  if(line2Ix<0) throw new Error('필수 컬럼(라인구분2)을 찾지 못했습니다');
+  if(matCodeIx<0) throw new Error('필수 컬럼(자재코드)을 찾지 못했습니다');
+  const monthCols=[];
+  header.forEach((h,ci)=>{
+    const m=h.replace(/\s/g,'').match(/^(\d{4})(\d{2})월?$/);
+    if(m){ const y=+m[1], mo=+m[2]; if(mo>=1&&mo<=12) monthCols.push({ci,y,m:mo}); }
   });
-  if(!out.length) throw new Error('유효한 목표 데이터가 없습니다 (구분월 예: 2607월, 또는 연도+월 컬럼 필요)');
+  if(!monthCols.length) throw new Error('월별 목표 컬럼(예: 202601월)을 찾지 못했습니다');
+  const out=[];
+  for(let ri=1; ri<matrix.length; ri++){
+    const row=matrix[ri];
+    if(!row||!row.length) continue;
+    const line2=String(row[line2Ix]||'').trim();
+    if(!line2) continue;
+    const matCode=normCode(row[matCodeIx]);
+    const line1=line1Ix>=0?String(row[line1Ix]||'').trim():'';
+    monthCols.forEach(mc=>{
+      const target=toNum(row[mc.ci]);
+      if(!target) return;
+      out.push({y:mc.y,m:mc.m,matCode,line1,line2,target});
+    });
+  }
+  if(!out.length) throw new Error('유효한 목표 데이터가 없습니다 (월별 목표 컬럼 값이 모두 비어있는지 확인해주세요)');
   return out;
 }
 
@@ -2608,7 +2610,7 @@ async function loadAll(){
   // --- 월별목표량 (경영계획) ---
   try{
     if(!results.planTarget.ok) throw new Error(results.planTarget.err);
-    planT.rows=parsePlanTarget(toObjects(results.planTarget.matrix,0));
+    planT.rows=parsePlanTarget(results.planTarget.matrix);
   }catch(e){
     planT.rows=[];
     console.warn('월별목표량 로드 실패:', e.message);
