@@ -633,20 +633,15 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           </div>
 
           <div class="card">
+            <h2 class="sec">경영계획 대비 달성률 <span class="hint" id="planHint"></span></h2>
+            <div class="cat-grid" id="planGrid"></div>
+          </div>
+
+          <div class="card">
             <h2 class="sec">일자 × 카테고리 집계표</h2>
             <div class="tbl-scroll"><table id="tblPivot"></table></div>
           </div>
 
-          <div class="card">
-            <h2 class="sec" style="display:flex;justify-content:space-between;align-items:center;">
-              <span>상세 입력 내역 <span id="rowCount" class="hint"></span></span>
-              <span style="display:flex;gap:8px;">
-                <button class="btn" id="btnAllRows">전체 보기</button>
-                <button class="btn" id="btnCsv">CSV 저장</button>
-              </span>
-            </h2>
-            <div class="tbl-scroll" style="max-height:500px;"><table id="tblDetail"></table></div>
-          </div>
           <p class="foot" id="prodFoot"></p>
         </div>
       </div>
@@ -837,6 +832,7 @@ const SHEETS = {
   mb5b      : 'mb5b',
   costPrev  : '원가분석 전월',
   costCurr  : '원가분석 당월',
+  planTarget: '월별목표량',
 };
 const PASSWORD = '7010';
 
@@ -1213,8 +1209,8 @@ function renderProd(){
   renderTop();
   renderCatCards();
   renderCapacityUtil();
+  renderPlanTarget();
   renderProdPivot();
-  renderProdDetail();
 }
 /* ---- 케파 대비 가동률 계산 (카테고리 필터와 무관하게 선택 기간 전체 기준) ---- */
 /* 선택 구간이 걸친 각 "달력상 월"마다 실제 겹치는 일수만큼만 그 달의 케파/계획을 비례 배분합니다.
@@ -1244,20 +1240,43 @@ function computeCapacityUtil(rows,start,end){
   inR.forEach(r=>{ totalActual+=r.qty; const f=capacityFamily(r.cat); if(f) byFam[f]=(byFam[f]||0)+r.qty; });
   let actual=0; CAPACITY_FAMILIES.forEach(f=>{ actual+=(byFam[f]||0); });
   const overlaps=monthOverlaps(start,end);
-  let capacity=0, planTarget=0;
+  let capacity=0;
   overlaps.forEach(o=>{
     const frac=o.days/o.daysInMonth;
     CAPACITY_FAMILIES.forEach(f=>{ capacity+=CAPACITY_TON[f]*1000*frac; });
-    if(PLAN_TARGET_TON[o.m]!=null) planTarget+=PLAN_TARGET_TON[o.m]*1000*frac;
   });
+  // 월별목표량 시트가 있으면 그걸 우선 사용(라인구분2 무관 전체 합계), 없으면 하드코딩된 값으로 대체
+  const planTarget = planT.rows.length ? planTargetForPeriod(planT.rows,overlaps,null)
+    : overlaps.reduce((s,o)=>s+(PLAN_TARGET_TON[o.m]!=null?PLAN_TARGET_TON[o.m]*1000*(o.days/o.daysInMonth):0),0);
   const periodDays=Math.round((end-start)/864e5)+1;
   return {actual,totalActual,capacity,pct:capacity>0?actual/capacity*100:null,
     planTarget,planPct:planTarget>0?totalActual/planTarget*100:null,
     byFam,periodDays,overlaps};
 }
+/* 월별목표량 시트(자재코드별 목표를 라인구분2로 집계) 기준 계획 목표 계산.
+   line2Filter가 null이면 전체 라인 합계, 특정 문자열이면 그 라인구분2만. */
+function planTargetForPeriod(rows,overlaps,line2Filter){
+  let total=0;
+  overlaps.forEach(o=>{
+    const frac=o.days/o.daysInMonth;
+    let monthSum=0;
+    rows.forEach(r=>{
+      if(r.y!==o.y||r.m!==o.m) return;
+      if(line2Filter && r.line2!==line2Filter) return;
+      monthSum+=r.target;
+    });
+    total+=monthSum*1000*frac; // 톤→kg
+  });
+  return total;
+}
+/* 생산실적의 카테고리명이 해당 라인구분2 라벨을 포함하면 그 라인 실적으로 집계 */
+function lineActualForPeriod(rows,start,end,line2Label){
+  return rows.filter(r=>inRange(r,start,end) && r.cat.indexOf(line2Label)>=0)
+    .reduce((s,r)=>s+r.qty,0);
+}
 function renderProdKpi(){
   const v=prodState.view;
-  const qty=sumBy(v,'qty'), tgt=sumBy(v,'target');
+  const qty=sumBy(v,'qty');
   const days=new Set(v.map(r=>r.ds)).size;
   const span=Math.round((prodState.end-prodState.start)/864e5)+1;
   const pe=new Date(prodState.start); pe.setDate(pe.getDate()-1);
@@ -1267,21 +1286,24 @@ function renderProdKpi(){
   const mk=G.year+'-'+String(G.month).padStart(2,'0');
   const gm=sumBy(scopedRows().filter(r=>r.mk===mk),'qty');
   const capUtil=computeCapacityUtil(prodState.all,prodState.start,prodState.end);
+  const planPct=capUtil.planPct, capPct=capUtil.pct;
   const cards=[
     {t:'총 생산량',v:fmt(qty),u:'kg',s:diff===null?'직전 기간 데이터 없음':
       '<span class="'+(diff>=0?'up':'down')+'">'+(diff>=0?'▲':'▼')+' '+Math.abs(diff).toFixed(1)+'%</span> 직전 동일기간',c:PC.main},
     {t:'일평균 생산량',v:fmt(days?qty/days:0),u:'kg',s:'가동 '+days+'일',c:PC.t1},
-    {t:'목표 달성률',v:tgt>0?(qty/tgt*100).toFixed(1):'—',u:tgt>0?'%':'',
-      s:tgt>0?'목표 '+fmt(tgt)+' kg':'목표량 미입력',
-      c:tgt>0?(qty/tgt>=0.95?PC.green:(qty/tgt>=0.8?PC.amber:PC.red)):PC.muted},
+    {t:'경영계획 달성률',v:planPct==null?'—':planPct.toFixed(1),u:planPct==null?'':'%',
+      s:capUtil.planTarget>0?'계획 '+fmt(capUtil.planTarget)+' kg':'월별목표량 시트 없음',
+      c:planPct==null?PC.muted:(planPct>=95?PC.green:(planPct>=80?PC.amber:PC.red)),gauge:planPct},
     {t:G.month+'월 생산량',v:fmt(gm),u:'kg',s:'기준월 ('+G.year+'년 '+G.month+'월)',c:PC.sky},
-    {t:'총 가동률',v:capUtil.pct==null?'—':capUtil.pct.toFixed(1),u:capUtil.pct==null?'':'%',
+    {t:'총 가동률',v:capPct==null?'—':capPct.toFixed(1),u:capPct==null?'':'%',
       s:'케파 '+fmt(capUtil.capacity)+'kg 대비 · 햄·비엔나·프랑크·베이컨 합산',
-      c:capUtil.pct==null?PC.muted:(capUtil.pct>=90?PC.green:(capUtil.pct>=70?PC.amber:PC.red))},
+      c:capPct==null?PC.muted:(capPct>=90?PC.green:(capPct>=70?PC.amber:PC.red)),gauge:capPct},
   ];
   document.getElementById('kpis').innerHTML=cards.map(k=>
     '<div class="kpi" style="border-top-color:'+k.c+'"><div class="t">'+k.t+'</div>'+
-    '<div class="v">'+k.v+'<small>'+k.u+'</small></div><div class="s">'+k.s+'</div></div>').join('');
+    '<div class="v">'+k.v+'<small>'+k.u+'</small></div><div class="s">'+k.s+'</div>'+
+    (k.gauge!=null?'<div class="track" style="margin-top:9px;margin-bottom:0;"><div class="fill" style="width:'+Math.min(Math.max(k.gauge,0),100)+'%;background:'+k.c+'"></div></div>':'')+
+    '</div>').join('');
 }
 
 /* ---- 전월 대비 · 전년동월 대비 비교표 ---- */
@@ -1468,8 +1490,8 @@ function renderCapacityUtil(){
   const capUtil=computeCapacityUtil(prodState.all,prodState.start,prodState.end);
   const famCap=ton=>capUtil.overlaps.reduce((s,o)=>s+ton*1000*(o.days/o.daysInMonth),0);
   const hintEl=document.getElementById('capHint');
-  if(hintEl) hintEl.textContent='— 선택 기간 '+capUtil.periodDays+'일 · 달력상 걸친 달만큼 케파·계획 비례 배분(온전한 한 달이면 오차 없음)';
-  const famCards=CAPACITY_FAMILIES.map(f=>{
+  if(hintEl) hintEl.textContent='— 선택 기간 '+capUtil.periodDays+'일 · 달력상 걸친 달만큼 케파 비례 배분(온전한 한 달이면 오차 없음)';
+  document.getElementById('capGrid').innerHTML=CAPACITY_FAMILIES.map(f=>{
     const actual=capUtil.byFam[f]||0;
     const cap=famCap(CAPACITY_TON[f]);
     const pct=cap>0?actual/cap*100:0;
@@ -1481,14 +1503,30 @@ function renderCapacityUtil(){
       '<div class="track"><div class="fill" style="width:'+Math.min(pct,100)+'%;background:'+col+'"></div></div>'+
       '<div class="cat-sub">케파 '+fmt(cap)+'kg ('+CAPACITY_TON[f]+'톤/월 기준)</div></div>';
   }).join('');
-  const planCol=capUtil.planPct==null?PC.muted:(capUtil.planPct>=95?PC.green:(capUtil.planPct>=80?PC.amber:PC.red));
-  const planCard='<div class="cat-card cat-card-wide" style="border-top-color:'+planCol+'">'+
-    '<div class="cat-top"><span class="cat-name">전사 (26년 경영계획)</span><span class="cat-qty">'+fmt(capUtil.totalActual)+' kg</span></div>'+
-    '<div class="bar-label"><span>계획 대비 달성률</span>'+
-    '<span style="color:'+planCol+';font-weight:700;">'+(capUtil.planPct==null?'—':capUtil.planPct.toFixed(1)+'%')+'</span></div>'+
-    '<div class="track"><div class="fill" style="width:'+(capUtil.planPct==null?0:Math.min(capUtil.planPct,100))+'%;background:'+planCol+'"></div></div>'+
-    '<div class="cat-sub">계획 '+fmt(capUtil.planTarget)+'kg · 전체 카테고리 생산량 기준</div></div>';
-  document.getElementById('capGrid').innerHTML=famCards+planCard;
+}
+/* 경영계획 대비 달성률 — 월별목표량 시트를 라인구분2 단위로 집계해 케파 대비 가동률과 같은 형식으로 표시 */
+function renderPlanTarget(){
+  const hintEl=document.getElementById('planHint');
+  if(!planT.rows.length){
+    if(hintEl) hintEl.textContent='— 월별목표량 시트를 읽지 못했습니다';
+    document.getElementById('planGrid').innerHTML='<p style="color:#8A96AB">"월별목표량" 시트(자재코드·라인구분2·목표수량)를 확인해주세요.</p>';
+    return;
+  }
+  const overlaps=monthOverlaps(prodState.start,prodState.end);
+  const lines=[...new Set(planT.rows.map(r=>r.line2))].sort(catSort);
+  if(hintEl) hintEl.textContent='— 선택 기간 기준 · 자재코드→라인구분2로 집계한 월별목표량 시트 대비';
+  document.getElementById('planGrid').innerHTML=lines.map(line=>{
+    const target=planTargetForPeriod(planT.rows,overlaps,line);
+    const actual=lineActualForPeriod(prodState.all,prodState.start,prodState.end,line);
+    const pct=target>0?actual/target*100:null;
+    const col=pct==null?PC.muted:(pct>=95?PC.green:(pct>=80?PC.amber:PC.red));
+    return '<div class="cat-card" style="border-top-color:'+col+'">'+
+      '<div class="cat-top"><span class="cat-name">'+esc(line)+'</span><span class="cat-qty">'+fmt(actual)+' kg</span></div>'+
+      '<div class="bar-label"><span>경영계획 대비 달성률</span>'+
+      '<span style="color:'+col+';font-weight:700;">'+(pct==null?'—':pct.toFixed(1)+'%')+'</span></div>'+
+      '<div class="track"><div class="fill" style="width:'+(pct==null?0:Math.min(pct,100))+'%;background:'+col+'"></div></div>'+
+      '<div class="cat-sub">목표 '+fmt(target)+'kg</div></div>';
+  }).join('');
 }
 function renderProdPivot(){
   const days=[...new Set(prodState.view.map(r=>r.ds))].sort().reverse();
@@ -1504,40 +1542,12 @@ function renderProdPivot(){
     '<td>'+fmt(tot.reduce((a,b)=>a+b,0))+'</td></tr></tbody>';
   document.getElementById('tblPivot').innerHTML=html;
 }
-function renderProdDetail(){
-  const rows=prodState.view.slice().sort((a,b)=>b.date-a.date||a.cat.localeCompare(b.cat)||a.item.localeCompare(b.item));
-  const shown=prodState.showAll?rows:rows.slice(0,300);
-  document.getElementById('rowCount').textContent='— '+fmt(rows.length)+'건 중 '+fmt(shown.length)+'건 표시';
-  document.getElementById('btnAllRows').textContent=prodState.showAll?'최근 300건만':'전체 보기';
-  let html='<thead><tr><th>일자</th><th style="text-align:left">카테고리</th><th style="text-align:left">제품명</th>'+
-    '<th>생산량</th><th>목표량</th><th>달성률</th><th style="text-align:left">비고</th></tr></thead><tbody>';
-  shown.forEach(r=>{
-    const ach=r.target>0?r.qty/r.target*100:null;
-    const col=ach===null?PC.muted:(ach>=95?PC.main:(ach>=80?PC.amber:PC.red));
-    html+='<tr><td>'+r.ds+'</td><td style="text-align:left"><span class="badge">'+esc(r.cat)+'</span></td>'+
-      '<td style="text-align:left" class="cell-strong">'+esc(r.item)+'</td>'+
-      '<td class="cell-strong">'+fmt(r.qty)+'</td><td style="color:#8A96AB">'+(r.target?fmt(r.target):'-')+'</td>'+
-      '<td style="color:'+col+';font-weight:700">'+(ach!==null?ach.toFixed(0)+'%':'-')+'</td>'+
-      '<td style="text-align:left;color:#5B6B85">'+esc(r.memo||'')+'</td></tr>';
-  });
-  document.getElementById('tblDetail').innerHTML=html+'</tbody>';
-}
-document.getElementById('btnAllRows').onclick=()=>{ prodState.showAll=!prodState.showAll; renderProdDetail(); };
-document.getElementById('btnCsv').onclick=()=>{
-  const head=['일자','카테고리','제품명','생산량','목표량','비고'];
-  const body=prodState.view.map(r=>[r.ds,r.cat,r.item,r.qty,r.target,r.memo]
-    .map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(','));
-  const blob=new Blob(['\uFEFF'+[head.join(',')].concat(body).join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='생산실적_'+ymd(prodState.start)+'_'+ymd(prodState.end)+'.csv';
-  a.click(); URL.revokeObjectURL(a.href);
-};
 /* =====================================================================
    ② 거래처별 입고 · 월별 수불  (원본 로직 유지 / 입력만 구글시트로)
    ===================================================================== */
 const rcpt={rows:[],excl:0};
 const led ={rows:[]};
+const planT={rows:[]};
 let selYear=null, selMonth=null, openMats=new Set(), rcptCls='all';
 let firstLoad=true;
 let ledSelYear=null, ledMetric='in', ledCls='all';
@@ -1616,6 +1626,42 @@ function parseLedger(raw){
       endQ:K.endQty?toNum(r[K.endQty]):0, endA:K.endAmt?toNum(r[K.endAmt]):0});
   });
   if(!out.length) throw new Error('유효한 수불 데이터가 없습니다 (구분월 형식 예: 2606월)');
+  return out;
+}
+
+/* ---------- 파싱: 월별목표량 (경영계획, 자재코드→라인구분2로 집계) ---------- */
+function parsePlanTarget(raw){
+  if(!raw.length) throw new Error('월별목표량 시트가 비어 있습니다');
+  const s=raw[0];
+  const keys=Object.keys(s);
+  const K={
+    gubun:findKey(s,['구분월','년월','연월']),
+    year:findKey(s,['연도','년도']),
+    month:findKey(s,['월']),
+    line2:findKey(s,['라인구분2','라인구분']),
+    target:findKey(s,['목표수량','목표생산량','목표량','계획수량','계획량']),
+  };
+  K.matCode=keys.find(k=>String(k).replace(/\s/g,'')==='자재')||findKey(s,['자재코드','자재번호','자재']);
+  if(!K.target) throw new Error('필수 컬럼(목표수량/목표생산량/목표량 중 하나)을 찾지 못했습니다');
+  if(!K.gubun && !(K.year&&K.month)) throw new Error('필수 컬럼(구분월 또는 연도+월)을 찾지 못했습니다');
+  const out=[];
+  raw.forEach(r=>{
+    let y=null,m=null;
+    if(K.gubun&&r[K.gubun]!=null){ const ym=gubunYm(r[K.gubun]); if(ym){ y=ym.y; m=ym.m; } }
+    if((y==null||m==null)&&K.year&&K.month){
+      const yy=parseInt(String(r[K.year]).replace(/[^0-9]/g,''));
+      const mm=parseInt(String(r[K.month]).replace(/[^0-9]/g,''));
+      if(yy>1900&&mm>=1&&mm<=12){ y=yy; m=mm; }
+    }
+    if(y==null||m==null) return;
+    const target=toNum(r[K.target]);
+    if(!target) return;
+    out.push({y,m,
+      matCode:K.matCode?String(r[K.matCode]||'').trim().replace(/\.0$/,''):'',
+      line2:K.line2?(String(r[K.line2]||'').trim()||'미분류'):'미분류',
+      target}); // 톤 단위로 보관 — 사용하는 곳에서 kg으로 환산
+  });
+  if(!out.length) throw new Error('유효한 목표 데이터가 없습니다 (구분월 예: 2607월, 또는 연도+월 컬럼 필요)');
   return out;
 }
 
@@ -1906,6 +1952,15 @@ function normName(s){
     .replace(/[\s#()（）,./\-_]+/g,'') // 공백·#·괄호·쉼표·점·슬래시·하이픈 차이를 무시하고 비교
     .toLowerCase();
 }
+/* 자재코드 비교용 정규화 — 숫자만인 코드는 앞자리 0을 보존하면서 소수점(.0) 흔적만 제거하고,
+   그 외에는 공백만 정리합니다. 두 시트에서 자재코드 표기가 조금 달라도(콤마·소수점·공백) 매칭되도록 합니다. */
+function normCode(v){
+  const s=String(v==null?'':v).trim();
+  if(!s) return '';
+  const m=s.match(/^(\d+)(?:\.0+)?$/);
+  if(m) return m[1];
+  return s.replace(/\s+/g,'').replace(/,/g,'');
+}
 function buildReceiptSupplierIndex(){
   const idx=new Map();
   if(!rcpt.rows.length) return idx;
@@ -1921,12 +1976,13 @@ function buildReceiptSupplierIndex(){
   return idx;
 }
 /* 자재코드(피벗 상세와 동일한 코드) 기준 정확 매칭 — 이름이 비슷해 보이는 다른 자재/연도와
-   섞이지 않도록 이름매칭보다 우선 사용 */
+   섞이지 않도록 이름매칭보다 우선 사용합니다. 월별수불·거래처별입고 양쪽 다 normCode()로
+   정규화해서 비교하므로 소수점(.0)·공백·선행 콤마 차이가 있어도 매칭됩니다. */
 function buildReceiptSupplierIndexByCode(){
   const idx=new Map();
   if(!rcpt.rows.length) return idx;
   rcpt.rows.forEach(r=>{
-    const code=String(r.matCode||'').trim().replace(/\.0$/,'');
+    const code=normCode(r.matCode);
     if(!code) return;
     if(!idx.has(code)) idx.set(code,new Map());
     const sm=idx.get(code);
@@ -1939,9 +1995,9 @@ function buildReceiptSupplierIndexByCode(){
 function lookupReceiptSuppliers(desc,idx){
   const key=normName(desc);
   if(!key) return null;
-  if(idx.has(key)) return idx.get(key);
-  for(const [k,v] of idx){ if(k.includes(key)||key.includes(k)) return v; }
-  return null;
+  // 자재코드 매칭을 우선시하기로 했으므로, 이름 매칭은 "정확히 같은 이름"일 때만 인정합니다
+  // (부분 포함 매칭은 서로 다른 자재를 잘못 연결할 위험이 있어 제외).
+  return idx.has(key) ? idx.get(key) : null;
 }
 function renderLedger(){
   [...document.getElementById('ledYearSeg').children].forEach(b=>b.classList.toggle('on',+b.textContent===ledSelYear));
@@ -1995,7 +2051,7 @@ function renderLedger(){
     // 항상 최신 상태로 다시 계산되므로 이걸 우선합니다.
     // 코드로 정확히 매칭됐는지, 이름으로 추정 매칭됐는지 구분 — 정확 매칭은 "≈"(추정) 표시를 붙이지 않습니다.
     let supRank=[], viaCode=false, viaName=false, viaOwnCol=false;
-    const codeKey=String(mat||'').trim().replace(/\.0$/,'');
+    const codeKey=normCode(mat);
     let sm=codeIdx.get(codeKey);
     if(sm){ viaCode=true; }
     else if(receiptIdx.size){ sm=lookupReceiptSuppliers(o.desc,receiptIdx); if(sm) viaName=true; }
@@ -2547,6 +2603,15 @@ async function loadAll(){
     document.getElementById('ledgerBody').style.display='block';
   }catch(e){
     document.getElementById('ndLedgerMsg').textContent=SHEETS.ledger+' — '+e.message;
+  }
+
+  // --- 월별목표량 (경영계획) ---
+  try{
+    if(!results.planTarget.ok) throw new Error(results.planTarget.err);
+    planT.rows=parsePlanTarget(toObjects(results.planTarget.matrix,0));
+  }catch(e){
+    planT.rows=[];
+    console.warn('월별목표량 로드 실패:', e.message);
   }
 
   // --- 전역 기준월 옵션 ---
