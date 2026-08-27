@@ -639,7 +639,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
               <div class="cat-grid" id="planGrid"></div>
             </div>
             <div class="card">
-              <h2 class="sec">주요 라인별 달성률 <span class="hint">— 상위 · 하위 TOP 5</span></h2>
+              <h2 class="sec">주요 제품별 달성률 <span class="hint">— 상위 · 하위 TOP 5</span></h2>
               <div class="cat-grid" id="planRankGrid"></div>
             </div>
           </div>
@@ -1537,27 +1537,46 @@ function renderPlanTarget(){
   }).join('');
 }
 /* 주요 라인별 달성률 상위/하위 TOP5 — 경영계획 대비 달성률과 같은 라인구분2 데이터를 순위로 재구성 */
+/* 생산실적엔 자재코드가 없어서, 월별목표량의 자재명(제품명)과 생산실적의 제품명을
+   정규화 후 서로 포함되는지로 매칭합니다(코드가 없는 상황에서 쓸 수 있는 유일한 연결고리).
+   라인 단위 순위는 이미 왼쪽 "경영계획 대비 달성률"에 있으므로, 여기는 개별 제품 단위로 봅니다. */
+function lookupProductActual(matName,rows){
+  const key=normName(matName);
+  if(!key) return 0;
+  return rows.filter(r=>{
+    const rk=normName(r.item);
+    return rk && (rk.includes(key)||key.includes(rk));
+  }).reduce((s,r)=>s+r.qty,0);
+}
 function renderPlanRank(){
   const el=document.getElementById('planRankGrid');
   if(!planT.rows.length){ el.innerHTML='<p style="color:#8A96AB">월별목표량 시트 데이터가 없습니다.</p>'; return; }
   const overlaps=monthOverlaps(prodState.start,prodState.end);
-  const lines=[...new Set(planT.rows.map(r=>r.line2))];
-  const rows=lines.map(line=>{
-    const target=planTargetForPeriod(planT.rows,overlaps,line);
-    const actual=lineActualForPeriod(prodState.all,prodState.start,prodState.end,line);
-    return {line,target,actual,pct:target>0?actual/target*100:null};
+  const prodMap=new Map();
+  planT.rows.forEach(r=>{
+    const key=r.matCode||r.matName;
+    if(!key) return;
+    if(!prodMap.has(key)) prodMap.set(key,{matCode:r.matCode,matName:r.matName,rows:[]});
+    prodMap.get(key).rows.push(r);
+  });
+  const inView=prodState.all.filter(r=>inRange(r,prodState.start,prodState.end));
+  const items=[...prodMap.values()].map(p=>{
+    const target=planTargetForPeriod(p.rows,overlaps,null);
+    const actual=lookupProductActual(p.matName,inView);
+    const name=p.matName||('자재 '+p.matCode);
+    return {name,matCode:p.matCode,target,actual,pct:target>0?actual/target*100:null};
   }).filter(r=>r.pct!=null);
-  if(!rows.length){ el.innerHTML='<p style="color:#8A96AB">비교 가능한 라인이 없습니다.</p>'; return; }
-  const sorted=rows.slice().sort((a,b)=>b.pct-a.pct);
+  if(!items.length){ el.innerHTML='<p style="color:#8A96AB">비교 가능한 제품이 없습니다. 생산실적의 제품명과 월별목표량의 자재명이 서로 매칭되는지 확인해주세요.</p>'; return; }
+  const sorted=items.slice().sort((a,b)=>b.pct-a.pct);
   const top=sorted.slice(0,5);
   const bottom=sorted.slice(-5).reverse().filter(r=>top.indexOf(r)<0);
   function card(r){
     const col=r.pct>=95?PC.green:(r.pct>=80?PC.amber:PC.red);
     return '<div class="cat-card" style="border-top-color:'+col+'">'+
-      '<div class="cat-top"><span class="cat-name">'+esc(r.line)+'</span><span class="cat-qty">'+fmt(r.actual)+' kg</span></div>'+
+      '<div class="cat-top"><span class="cat-name" title="'+esc(r.name)+'">'+esc(r.name)+'</span><span class="cat-qty">'+fmt(r.actual)+' kg</span></div>'+
       '<div class="bar-label"><span>계획대비 달성률</span><span style="color:'+col+';font-weight:700;">'+r.pct.toFixed(1)+'%</span></div>'+
       '<div class="track"><div class="fill" style="width:'+Math.min(r.pct,100)+'%;background:'+col+'"></div></div>'+
-      '<div class="cat-sub">목표 '+fmt(r.target)+'kg</div></div>';
+      '<div class="cat-sub">목표 '+fmt(r.target)+'kg'+(r.matCode?' · 자재코드 '+esc(r.matCode):'')+'</div></div>';
   }
   const divider=txt=>'<div class="cat-card-wide" style="font-weight:700;font-size:.78rem;color:'+PC.muted+';letter-spacing:.3px;margin:4px 0 -2px;">'+txt+'</div>';
   el.innerHTML=
@@ -1677,6 +1696,7 @@ function parsePlanTarget(matrix){
   const line1Ix=findCol('라인구분');
   const line2Ix=findCol('라인구분2');
   let matCodeIx=findCol('자재코드'); if(matCodeIx<0) matCodeIx=findCol('자재');
+  const matNameIx=findCol('자재명');
   if(line2Ix<0) throw new Error('필수 컬럼(라인구분2)을 찾지 못했습니다');
   if(matCodeIx<0) throw new Error('필수 컬럼(자재코드)을 찾지 못했습니다');
   const monthCols=[];
@@ -1692,11 +1712,12 @@ function parsePlanTarget(matrix){
     const line2=String(row[line2Ix]||'').trim();
     if(!line2) continue;
     const matCode=normCode(row[matCodeIx]);
+    const matName=matNameIx>=0?String(row[matNameIx]||'').trim():'';
     const line1=line1Ix>=0?String(row[line1Ix]||'').trim():'';
     monthCols.forEach(mc=>{
       const target=toNum(row[mc.ci]);
       if(!target) return;
-      out.push({y:mc.y,m:mc.m,matCode,line1,line2,target});
+      out.push({y:mc.y,m:mc.m,matCode,matName,line1,line2,target});
     });
   }
   if(!out.length) throw new Error('유효한 목표 데이터가 없습니다 (월별 목표 컬럼 값이 모두 비어있는지 확인해주세요)');
